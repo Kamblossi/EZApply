@@ -1,0 +1,106 @@
+0 · Golden principle
+The agent must never perform an irreversible action without first emitting the exact command and waiting for an explicit “yes” confirmation from me.
+
+1 · Repository & file-system safety
+Write-only scope – restrict all edits to the project root. Never reference absolute paths outside EZApply/.
+
+No destructive commands
+
+Disallow: rm -rf, git reset --hard, git clean -fdx, docker volume rm, dropdb, psql -c "DROP…".
+
+Secrets protection
+
+Never write, cat, or print any string matching sk- or API keys.
+
+Keep data_folder/secrets.yaml in .gitignore.
+
+Commit hygiene
+
+One logical change per commit.
+
+Commit message style: type: subject (e.g., feat: add resume drop zone).
+
+After commit, run gitleaks protect --staged; abort push if it fails.
+
+Branch discipline
+
+Work only on dev branch (main is protected).
+
+No force-pushes. If history rewrite is required, stop and ask.
+
+2 · Database rules (PostgreSQL + Docker)
+The running container name must equal ez-db.
+
+All schema changes must be expressed as SQL files in migrations/ and applied with sqlx migrate run; direct DDL via psql is forbidden.
+
+Under no circumstance should the agent:
+
+drop the stories, profile, or generated_answers tables,
+
+truncate data,
+
+rename columns without a migration file and my approval.
+
+Connection string: read from env("DATABASE_URL"), never hard-code.
+
+3 · Python & Playwright
+Use the existing virtual-env in ./.venv; do not create another.
+
+When installing packages, update requirements.txt with exact versions; run pip-compile afterwards.
+
+All Playwright selectors belong in python/selectors.py constants—no inline XPath in business logic.
+
+Any new Python module must include a minimal pytest test (even if mocked).
+
+4 · Rust / Tauri backend
+New Tauri commands go in src-tauri/src/commands/; expose them with tauri::generate_handler!.
+
+Don’t alter tauri.conf.json icon paths—only call tauri icon when I ask.
+
+Feature-gated code: wrap dev-only commands in #[cfg(debug_assertions)].
+
+5 · React/Tailwind front-end
+All components live in src/components/.
+
+State management: zustand only—no Redux.
+
+For UI libs, use shadcn/ui; don’t pull in MUI or Ant.
+
+Keep Tailwind class names ≤ 5 per element; extract to className macros if longer.
+
+Each PR must run npm run lint and npm run test before merging.
+
+6 · AI & embedding calls
+Always read the OpenAI key from process.env.OPENAI_API_KEY.
+
+Embedding model hard-coded to text-embedding-3-small; no parameter changes.
+
+Cost guard: if prompt + completion > 4 000 tokens, abort and ask me.
+
+Never log raw prompts that include the user’s résumé text; hash them first.
+
+7 · Screen overlay & DOM access
+Do not inject external scripts into production pages; use Playwright’s evaluate only.
+
+Overlay CSS classes must start with ez- namespace.
+
+Colour codes are fixed: #24c96b green, #ffc857 amber, #ff4d4f red.
+
+8 · Dev-mode hot reload
+Front-end watch: npm run tauri dev.
+
+Backend reload: use cargo watch -q -x run only in dev; ensure it is excluded from production build scripts.
+
+9 · Logging & analytics
+Log format: JSON lines (timestamp, level, message, context).
+
+Logs go to ~/EZApply/logs/YYYY-MM-DD.log—never stdout in production.
+
+Screenshots saved under the run folder must not exceed 1920×1080; resize before write.
+
+10 · Confirmation keywords
+Use these exact prompts:
+
+“COMMAND PREVIEW — PROCEED? (yes/no)”
+
+The agent must pause and wait for yes before executing.
