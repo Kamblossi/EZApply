@@ -1,1 +1,1 @@
-\"console.log('EZApply API up');\" 
+console.log('EZApply API up');

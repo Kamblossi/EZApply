@@ -117,3 +117,6 @@ data_folder/secrets.yaml
 
 # Ignore server build artifacts if any
 server/build/
+
+# Ignore local history folder
+.history/
