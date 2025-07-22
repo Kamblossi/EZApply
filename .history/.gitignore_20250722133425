@@ -1,0 +1,76 @@
+# Root-level .gitignore for EZApply project
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+.DS_Store
+
+# Dependency directories
+node_modules/
+server/node_modules/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+out/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Parcel cache
+.cache/
+
+# Electron Forge output
+out/
+
+# VSCode settings folder
+.vscode/
+
+# Mac system files
+.DS_Store
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+
+# Coverage directory
+coverage/
+
+# Misc
+*.tgz
+
+# Ignore secrets file if any
+data_folder/secrets.yaml
+
+# Ignore any other OS or editor files
+*.swp
+*.swo
+*.bak
+*.tmp
+
+# Ignore server build artifacts if any
+server/build/

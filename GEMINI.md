@@ -1,4 +1,4 @@
-### EZApply — **Blackbox-agent Guard-Rails (v 1.1)**
+### EZApply — **Guard-Rails (v 1.1)**
 
 EZApply is a local-first desktop application that automates job applications on NHS Trac (and other ATS portals).
 

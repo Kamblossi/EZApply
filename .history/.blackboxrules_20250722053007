@@ -1,7 +1,6 @@
 ### EZApply — **Blackbox-agent Guard-Rails (v 1.1)**
 
 EZApply is a local-first desktop application that automates job applications on NHS Trac (and other ATS portals).
-
 Desktop Client (Windows App): Electron-based frontend (HTML, CSS, JavaScript) for the user interface.
 
 Backend Server (API + AI Proxy): A web service likely implemented with Node.js (Express or Koa) to handle all core functionalities, including user authentication, job management, and secure proxying of AI interactions.
