@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "ts-node-dev --respawn src/index.ts",
+    "db:migrate:dev": "psql \"$DATABASE_URL\" -f ../migrations/20250724T180000_init.sql",
+    "test": "jest"
   },
   "keywords": [],
   "author": "",
