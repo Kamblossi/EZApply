@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
-  "scripts": {
+"scripts": {
     "dev": "ts-node-dev --respawn src/index.ts",
-    "db:migrate:dev": "psql \"$DATABASE_URL\" -f ../migrations/20250724T180000_init.sql",
+    "db:migrate:dev": "powershell -Command \"$Env:DATABASE_URL='postgres://ezuser:ezpass@localhost:5432/ezapply_dev?sslmode=disable'; sqlx migrate run --source ../migrations\"",
     "test": "jest --detectOpenHandles"
   },
   "keywords": [],
@@ -23,6 +23,7 @@
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.3",
+    "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.0.15",
     "@types/supertest": "^6.0.3",
@@ -30,6 +31,7 @@
     "supertest": "^7.1.4",
     "ts-jest": "^29.4.0",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   }
 }

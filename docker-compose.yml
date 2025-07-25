@@ -1,14 +1,15 @@
 services:
-  db:
-    image: postgres:15-alpine
+  ez-db:
+    image: postgres:16
     container_name: ez-db
+    restart: unless-stopped
     environment:
-      POSTGRES_USER: ezapply
-      POSTGRES_PASSWORD: ezapply_dev_pw
+      POSTGRES_USER: ezuser
+      POSTGRES_PASSWORD: ezpass
       POSTGRES_DB: ezapply_dev
-    volumes:
-      - pgdata:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    volumes:
+      - ez-db-data:/var/lib/postgresql/data
 volumes:
-  pgdata:
+  ez-db-data:

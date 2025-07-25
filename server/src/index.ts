@@ -9,5 +9,10 @@ app.use(express.json());
 app.use('/api/auth', authRouter);
 app.use('/api/me', meRouter);
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => console.log(`EZApply API running on :${PORT}`));
+
+if (require.main === module) {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => console.log(`EZApply API running on :${PORT}`));
+}
+
+export { app };
