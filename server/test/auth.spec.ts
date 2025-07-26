@@ -7,11 +7,13 @@ describe('Auth flow (register → login → me)', () => {
   const api = request(app);
   const email = `user${Date.now()}@example.com`;
   const password = 'S3curePass!';
+  const forename = 'Test';
+  const surname = 'User';
 
   it('registers a new user', async () => {
     const res = await api
       .post('/api/auth/register')
-      .send({ email, password });
+      .send({ email, password, forename, surname });
     expect(res.status).toBe(200);
     expect(res.body.token).toBeDefined();
   });

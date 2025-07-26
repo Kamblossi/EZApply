@@ -9,10 +9,17 @@ describe('Me endpoint', () => {
 
   const email = `user${Date.now()}@example.com`;
   const password = 'S3curePass!';
+  const forename = 'Test';
+  const surname = 'User';
 
   beforeAll(async () => {
     // Register user
-    const registerRes = await api.post('/api/auth/register').send({ email, password });
+    const registerRes = await api.post('/api/auth/register').send({ 
+      email, 
+      password, 
+      forename, 
+      surname 
+    });
     token = registerRes.body.token;
   });
 

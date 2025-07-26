@@ -1,5 +1,8 @@
 {
 	"devDependencies": {
 		"@types/pg": "^8.15.4"
+	},
+	"dependencies": {
+		"jest": "^30.0.5"
 	}
 }

@@ -5,16 +5,23 @@ import jwt from 'jsonwebtoken';
 import { db } from '../db';
 
 const router = Router();
-const Creds = z.object({
+const RegisterCreds = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  forename: z.string().min(1),
+  surname: z.string().min(1),
+});
+
+const LoginCreds = z.object({
   email: z.string().email(),
   password: z.string().min(8),
 });
 
 router.post('/register', async (req, res) => {
-  const parse = Creds.safeParse(req.body);
+  const parse = RegisterCreds.safeParse(req.body);
   if (!parse.success) return res.status(400).json(parse.error);
 
-  const { email, password } = parse.data;
+  const { email, password, forename, surname } = parse.data;
   const hash = await bcrypt.hash(password, 12);
 
   try {
@@ -25,6 +32,14 @@ router.post('/register', async (req, res) => {
       [email, hash]
     );
     const user = rows[0];
+
+    // Create user profile with forename and surname
+    await db.query(
+      `INSERT INTO user_profiles (user_id, forename, surname)
+       VALUES ($1, $2, $3)`,
+      [user.id, forename, surname]
+    );
+
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET as string,
@@ -38,7 +53,7 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-  const parse = Creds.safeParse(req.body);
+  const parse = LoginCreds.safeParse(req.body);
   if (!parse.success) return res.status(400).json(parse.error);
 
   const { email, password } = parse.data;
