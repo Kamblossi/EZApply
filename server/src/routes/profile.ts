@@ -123,4 +123,92 @@ profileRouter.get('/', requireAuth, async (req, res) => {
   }
 });
 
+// PUT /api/profile
+profileRouter.put('/', requireAuth, async (req, res) => {
+  const userId = (req as any).user?.id; // Get userId from authenticated request
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized: User ID not found.' });
+  }
+
+  try {
+    // 1. Validate incoming request body against ProfileDTO
+    // We use .partial() here to allow for partial updates if you want to support that later,
+    // but for initial master row update, ProfileDTO.parse() is also fine if all fields are optional/nullable in PUT.
+    // For this specific step ("master row only"), we'll focus on the ProfileDTO fields
+    // directly corresponding to the user_profiles table.
+    const incomingProfile = ProfileDTO.parse(req.body);
+
+    // Filter out nested arrays as this PUT is for master row only for now
+    const {
+      employment_records, education_records, reference_contacts, user_documents, user_skills,
+      id, user_id: incoming_user_id, // Exclude id and incoming user_id from direct update payload
+      ...profileDataToUpdate // This will contain all direct user_profiles fields
+    } = incomingProfile;
+
+    // Convert Date objects back to ISO strings for PostgreSQL
+    const sanitizedProfileData: Record<string, any> = { ...profileDataToUpdate };
+    if (sanitizedProfileData.available_date) {
+      sanitizedProfileData.available_date = (sanitizedProfileData.available_date as Date).toISOString();
+    }
+    // Add created_at and updated_at if they are part of your DTO and need to be handled.
+    // Usually, updated_at is handled by DB triggers, but if your DTO includes it and expects client to send it, manage here.
+    // For now, assume DB handles timestamps.
+
+    // Get the keys and values for the UPSERT statement
+    const columns = Object.keys(sanitizedProfileData).filter(key => key !== 'id' && key !== 'user_id'); // Ensure id/user_id are not updated directly
+    const values = columns.map(col => sanitizedProfileData[col]);
+
+    // Create SET clause for UPDATE part of UPSERT
+    const setClause = columns.map((col, index) => `${col} = $${index + 2 + columns.length}`).join(', '); // Parameters for UPDATE come after INSERT values
+
+    // SQL query for UPSERT (INSERT ... ON CONFLICT DO UPDATE)
+    // We need to either find an existing profile_id for this user_id, or generate a new one.
+    // Since user_profiles.id is the PK and user_profiles.user_id is unique, we can conflict on user_id.
+    const upsertQuery = `
+      INSERT INTO user_profiles (
+          id, user_id, ${columns.join(', ')}
+      ) VALUES (
+          COALESCE((SELECT id FROM user_profiles WHERE user_id = $1), gen_random_uuid()),
+          $1, ${columns.map((_, i) => `$${i + 2}`).join(', ')}
+      )
+      ON CONFLICT (user_id) DO UPDATE SET
+          ${setClause}
+      RETURNING *;
+    `;
+    // $1 = userId
+    // $2 to $(1+columns.length) for INSERT values
+    // $(2+columns.length) onwards for UPDATE values
+
+    const result = await db.query(upsertQuery, [userId, ...values, ...values]);
+
+    const updatedProfile = result.rows[0];
+
+    // Transform updated profile from DB to match ProfileDTO structure for response
+    const transformedProfile = {
+      ...updatedProfile,
+      id: updatedProfile.id, // Ensure it's 'id' for DTO
+      available_date: updatedProfile.available_date ? new Date(updatedProfile.available_date) : null,
+      employment_records: [], // Empty for master row only PUT
+      education_records: [],
+      reference_contacts: [],
+      user_documents: [],
+      user_skills: [],
+    };
+
+    // Re-validate and return the updated profile
+    const validatedProfile = ProfileDTO.parse(transformedProfile);
+
+    res.status(200).json(validatedProfile);
+
+  } catch (error: any) {
+    console.error('Error updating profile:', error);
+    if (error.issues) { // Zod validation error
+      return res.status(400).json({ message: "Validation Error", errors: error.issues });
+    }
+    res.status(500).json({ message: 'Failed to update profile', error: error.message });
+  }
+});
+
+
 export { profileRouter };
