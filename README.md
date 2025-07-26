@@ -120,7 +120,7 @@ All structured data lives in Postgres; files are referenced by absolute path.
 
 ```bash
 # Clone
-git clone https://github.com/ezuser/EZApply.git
+git clone https://github.com/Kamblossi/EZApply.git
 cd ezapply
 
 # Start Postgres
