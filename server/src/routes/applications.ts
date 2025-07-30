@@ -106,4 +106,94 @@ applicationsRouter.get('/', async (req, res) => {
   }
 });
 
+
+// =====================================================================
+// POST /api/applications - Create a new application for the authenticated user
+// =====================================================================
+applicationsRouter.post('/', async (req, res) => {
+  const userId = (req as any).user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized: User ID not found.' });
+  }
+
+  let client;
+  try {
+    client = await db.connect();
+
+    // First, try to extract and validate just the job_id to check existence
+    try {
+      const basicJobIdValidation = z.object({ job_id: z.string().uuid('Invalid job ID format.') });
+      const { job_id } = basicJobIdValidation.parse(req.body);
+      
+      // Check if job_id exists
+      const jobCheckResult = await client.query('SELECT id FROM jobs WHERE id = $1;', [job_id]);
+      if (jobCheckResult.rowCount === 0) {
+          return res.status(404).json({ message: 'Job not found with the provided job_id.' });
+      }
+    } catch (jobIdError) {
+      // If job_id validation fails, continue to full validation to get all errors
+      // This will fall through to the full validation below
+    }
+
+    // Now perform full validation to get all validation errors
+    const incomingApplicationData = ApplicationDTO.omit({ user_id: true }).parse(req.body);
+
+    // Insert into applications table
+    const insertResult = await client.query(
+      `INSERT INTO applications (
+        user_id, job_id, status, application_date, notes
+       ) VALUES ($1, $2, $3, $4, $5)
+       RETURNING *;`,
+      [
+        userId, // Use the authenticated user's ID
+        incomingApplicationData.job_id,
+        incomingApplicationData.status || 'draft', // Default in DTO, ensure DB default matches
+        incomingApplicationData.application_date ? incomingApplicationData.application_date.toISOString() : null,
+        incomingApplicationData.notes || null,
+      ]
+    );
+
+    const createdApplication = insertResult.rows[0];
+
+    // Format dates back to Date objects for consistent DTO response
+    const formattedApplication = {
+        ...createdApplication,
+        application_date: createdApplication.application_date ? new Date(createdApplication.application_date) : null,
+        created_at: new Date(createdApplication.created_at),
+        updated_at: new Date(createdApplication.updated_at),
+    };
+
+    // Re-fetch the job details to include in the response, consistent with GET
+    const jobDetailsResult = await client.query('SELECT * FROM jobs WHERE id = $1;', [formattedApplication.job_id]);
+    const jobDetails = jobDetailsResult.rows[0];
+    const formattedJobDetails = {
+        ...jobDetails,
+        posted_date: jobDetails.posted_date ? new Date(jobDetails.posted_date) : null,
+        deadline_date: jobDetails.deadline_date ? new Date(jobDetails.deadline_date) : null,
+        created_at: new Date(jobDetails.created_at),
+        updated_at: new Date(jobDetails.updated_at),
+    };
+    const validatedJobDetails = JobDTO.parse(formattedJobDetails); // Validate job details
+
+
+    // Validate and send the final response, embedding job_details
+    const validatedApplicationResponse = {
+        ...ApplicationDTO.parse(formattedApplication), // Validate base application
+        job_details: validatedJobDetails // Embed validated job details
+    };
+
+    res.status(201).json(validatedApplicationResponse); // 201 Created
+
+  } catch (error: any) {
+    console.error('Error creating application:', error);
+    if (error instanceof z.ZodError) { // Zod validation error
+      return res.status(400).json({ message: 'Validation error', errors: error.issues });
+    }
+    res.status(500).json({ message: 'Failed to create application', error: error.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 export default applicationsRouter;

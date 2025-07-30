@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import { randomUUID } from 'crypto';
 import { JobDTO } from '../src/validators/job';
 import { ApplicationDTO } from '../src/validators/application';
+import { z } from 'zod'; // Import z for ZodError check
 
 // Mock user for testing authentication
 const testUser = {
@@ -37,15 +38,15 @@ describe('Jobs and Applications Endpoints', () => {
 
   afterAll(async () => {
     // Clean up data created during tests
-    await db.query('DELETE FROM applications WHERE user_id = $1', [testUserId]);
-    await db.query('DELETE FROM jobs WHERE company IN ($1, $2, $3, $4)', ['Test Company A', 'Test Company B', 'Test Company C', 'Another Company']);
+    await db.query('DELETE FROM applications');
+    await db.query('DELETE FROM jobs');
     await db.query('DELETE FROM users WHERE id = $1', [testUserId]);
   });
 
   beforeEach(async () => {
     // Clear jobs and applications before each test to ensure test isolation
-    await db.query('DELETE FROM applications WHERE user_id = $1', [testUserId]);
-    await db.query('DELETE FROM jobs WHERE company IN ($1, $2, $3, $4)', ['Test Company A', 'Test Company B', 'Test Company C', 'Another Company']);
+    await db.query('DELETE FROM applications');
+    await db.query('DELETE FROM jobs');
   });
 
   // --- GET /api/jobs tests ---
@@ -263,5 +264,171 @@ describe('Jobs and Applications Endpoints', () => {
     // Verify both have job_details
     expect(res.body[0].job_details.title).toBe('Backend Developer');
     expect(res.body[1].job_details.title).toBe('Frontend Developer');
+  });
+
+  // --- POST /api/jobs tests ---
+
+  it('POST /api/jobs should return 401 if no authentication token is provided', async () => {
+    const res = await request(app).post('/api/jobs').send({});
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Unauthorized: No token provided.');
+  });
+
+  it('POST /api/jobs should create a new job listing successfully', async () => {
+    const newJob = {
+      title: 'Full Stack Developer',
+      company: 'New Tech Co',
+      location: 'Remote',
+      description: 'Exciting opportunity!',
+      url: 'http://newtech.com/careers/fsd',
+      status: 'open',
+      posted_date: new Date('2025-01-01T10:00:00.000Z'),
+      deadline_date: new Date('2025-01-31T17:00:00.000Z'),
+    };
+
+    const res = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(newJob);
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body).toHaveProperty('id');
+    expect(typeof res.body.id).toBe('string');
+    expect(res.body.title).toBe(newJob.title);
+    expect(res.body.company).toBe(newJob.company);
+    expect(res.body.location).toBe(newJob.location);
+    expect(res.body.status).toBe(newJob.status);
+    expect(new Date(res.body.posted_date)).toEqual(newJob.posted_date);
+    expect(new Date(res.body.deadline_date)).toEqual(newJob.deadline_date);
+
+    // Verify it exists in the database
+    const dbRes = await db.query('SELECT * FROM jobs WHERE id = $1', [res.body.id]);
+    expect(dbRes.rows).toHaveLength(1);
+    expect(dbRes.rows[0].title).toBe(newJob.title);
+
+    // Verify it's returned by GET /api/jobs
+    const getRes = await request(app).get('/api/jobs').set('Authorization', `Bearer ${authToken}`);
+    expect(getRes.statusCode).toBe(200);
+    expect(getRes.body.some((job: any) => job.id === res.body.id)).toBe(true);
+  });
+
+  it('POST /api/jobs should return 400 for invalid job data', async () => {
+    const invalidJob = {
+      title: '', // Invalid: min length 1
+      company: 123, // Invalid: must be string
+    };
+
+    const res = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(invalidJob);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toHaveProperty('message', 'Validation error');
+    expect(res.body).toHaveProperty('errors');
+    expect(Array.isArray(res.body.errors)).toBe(true);
+    expect(res.body.errors[0].path).toEqual(['title']);
+    expect(res.body.errors[1].path).toEqual(['company']);
+  });
+
+  // --- POST /api/applications tests ---
+
+  it('POST /api/applications should return 401 if no authentication token is provided', async () => {
+    const res = await request(app).post('/api/applications').send({});
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Unauthorized: No token provided.');
+  });
+
+  it('POST /api/applications should return 400 for invalid application data', async () => {
+    const invalidApp = {
+      job_id: 'not-a-uuid', // Invalid UUID
+      status: '', // Invalid: min length 1
+    };
+
+    const res = await request(app)
+      .post('/api/applications')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(invalidApp);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toHaveProperty('message', 'Validation error');
+    expect(res.body).toHaveProperty('errors');
+    expect(Array.isArray(res.body.errors)).toBe(true);
+    
+    // Check that we have errors for both fields
+    const jobIdError = res.body.errors.find((err: any) => err.path && err.path.includes('job_id'));
+    const statusError = res.body.errors.find((err: any) => err.path && err.path.includes('status'));
+    
+    expect(jobIdError).toBeDefined();
+    expect(statusError).toBeDefined();
+  });
+
+  it('POST /api/applications should return 404 if job_id does not exist', async () => {
+    const nonExistentJobId = '11111111-1111-1111-9111-111111111111'; // A valid UUID, but not in DB
+    const appData = {
+      job_id: nonExistentJobId,
+      status: 'draft',
+    };
+
+    const res = await request(app)
+      .post('/api/applications')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(appData);
+
+    expect(res.statusCode).toBe(404);
+    expect(res.body.message).toBe('Job not found with the provided job_id.');
+  });
+
+  it('POST /api/applications should create a new application successfully', async () => {
+    // First, create a job to apply to
+    const jobForApplication = {
+      title: 'UX Designer',
+      company: 'Design Studio',
+      status: 'open',
+      posted_date: new Date('2025-02-01T09:00:00.000Z'),
+    };
+    const jobRes = await request(app)
+      .post('/api/jobs')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(jobForApplication);
+    expect(jobRes.statusCode).toBe(201);
+    const jobId = jobRes.body.id;
+
+    const newApplication = {
+      job_id: jobId,
+      status: 'submitted',
+      application_date: new Date('2025-02-05T14:00:00.000Z'),
+      notes: 'Followed up via email.',
+    };
+
+    const res = await request(app)
+      .post('/api/applications')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(newApplication);
+
+    expect(res.statusCode).toBe(201);
+    expect(res.body).toHaveProperty('id');
+    expect(typeof res.body.id).toBe('string');
+    expect(res.body.user_id).toBe(testUserId);
+    expect(res.body.job_id).toBe(jobId);
+    expect(res.body.status).toBe(newApplication.status);
+    expect(new Date(res.body.application_date)).toEqual(newApplication.application_date);
+    expect(res.body.notes).toBe(newApplication.notes);
+
+    // Verify embedded job_details
+    expect(res.body.job_details).toBeDefined();
+    expect(res.body.job_details.id).toBe(jobId);
+    expect(res.body.job_details.title).toBe(jobForApplication.title);
+
+    // Verify it exists in the database
+    const dbRes = await db.query('SELECT * FROM applications WHERE id = $1', [res.body.id]);
+    expect(dbRes.rows).toHaveLength(1);
+    expect(dbRes.rows[0].job_id).toBe(jobId);
+    expect(dbRes.rows[0].user_id).toBe(testUserId);
+
+    // Verify it's returned by GET /api/applications
+    const getRes = await request(app).get('/api/applications').set('Authorization', `Bearer ${authToken}`);
+    expect(getRes.statusCode).toBe(200);
+    expect(getRes.body.some((app: any) => app.id === res.body.id)).toBe(true);
   });
 });
