@@ -65,8 +65,8 @@ export const ProfileDTO = z.object({
   // user_profiles table fields
   id: z.string().uuid().optional(), // The user_profile_id, optional for initial creation
   user_id: z.string().uuid().optional(), // Will be set by backend, optional for DTO input
-  forename: z.string().min(1, "Forename is required."),
-  surname: z.string().min(1, "Surname is required."),
+  forename: z.string().min(1, "Forename is required.").optional().nullable(),
+  surname: z.string().min(1, "Surname is required.").optional().nullable(),
   middle_names: z.string().optional().nullable(),
   title: z.string().optional().nullable(),
   ni_number: z.string().optional().nullable(),

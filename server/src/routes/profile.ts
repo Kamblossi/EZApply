@@ -73,17 +73,13 @@ profileRouter.get('/', requireAuth, async (req, res) => {
     const rawProfile = profileQueryResult.rows[0];
 
     if (!rawProfile) {
-      const userRes = await db.query('SELECT forename, surname FROM users WHERE id = $1', [userId]);
-      const userDetails = userRes.rows[0];
-
-      if (!userDetails) {
-        return res.status(404).json({ message: 'User not found, or profile base not creatable.' });
-      }
-
+      // If no profile exists, return an empty profile with basic user_id
+      // Forename and surname are part of user_profiles, not users table.
+      // So, if no profile, these will be null/undefined until a profile is created.
       const emptyProfile = {
         user_id: userId,
-        forename: userDetails.forename,
-        surname: userDetails.surname,
+        forename: null, // No forename in users table
+        surname: null,  // No surname in users table
         employment_records: [],
         education_records: [],
         reference_contacts: [],
@@ -185,6 +181,8 @@ profileRouter.put('/', requireAuth, async (req, res) => {
     // --- Child Tables: Delete existing and Insert new ---
 
     // Employment Records
+    console.log('Processing employment records for userProfileId:', userProfileId);
+    console.log('Employment records to insert:', employment_records);
     await client.query('DELETE FROM employment_records WHERE user_profile_id = $1;', [userProfileId]);
     for (const record of employment_records) {
       // Convert dates to ISO strings for DB
@@ -342,6 +340,45 @@ profileRouter.put('/', requireAuth, async (req, res) => {
     if (client) {
       client.release();
     }
+  }
+});
+
+// =====================================================================
+// DELETE /api/profile
+// =====================================================================
+profileRouter.delete('/', async (req, res) => {
+  const userId = (req as any).user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized: User ID not found.' });
+  }
+
+  try {
+    // First, find the user_profile_id associated with the userId
+    // This is important because the cascade deletion happens from user_profiles.id
+    const profileIdResult = await db.query('SELECT id FROM user_profiles WHERE user_id = $1;', [userId]);
+
+    const userProfileId = profileIdResult.rows[0]?.id;
+
+    if (!userProfileId) {
+      return res.status(404).json({ message: 'Profile not found for this user.' });
+    }
+
+    // Perform the deletion of the master profile row
+    // Due to ON DELETE CASCADE, all child records linked to this user_profile_id
+    // in employment_records, education_records, etc., will also be deleted.
+    const deleteResult = await db.query('DELETE FROM user_profiles WHERE id = $1 RETURNING id;', [userProfileId]);
+
+    if (deleteResult.rowCount === 0) {
+      // This case should ideally be caught by the 404 above, but good for robustness
+      return res.status(404).json({ message: 'Profile not found or already deleted.' });
+    }
+
+    res.status(204).send(); // 204 No Content for successful deletion
+
+  } catch (error: any) {
+    console.error('Error during profile DELETE operation:', error);
+    res.status(500).json({ message: 'Failed to delete profile due to server error', error: error.message });
   }
 });
 

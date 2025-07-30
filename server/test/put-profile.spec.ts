@@ -491,3 +491,110 @@ describe('PUT /api/profile', () => {
     expect(parsedProfile.success).toBe(true);
   });
 });
+
+describe('DELETE /api/profile', () => {
+    let putTestUserId: string;
+    let putTestAuthToken: string;
+    let putTestUser: any; // To store user details for verification
+
+    beforeEach(async () => {
+        const newUserEmail = `deleteuser_${Date.now()}@example.com`;
+        const registerRes = await request(app)
+            .post('/api/auth/register')
+            .send({
+                email: newUserEmail,
+                password: 'Password123!',
+                forename: 'Delete',
+                surname: 'TestUser',
+            });
+
+        putTestAuthToken = registerRes.body.token;
+        const decoded = jwt.decode(putTestAuthToken) as { id: string, forename: string, surname: string };
+        putTestUserId = decoded.id;
+        putTestUser = { forename: decoded.forename, surname: decoded.surname }; // Store base user details
+    });
+
+    afterEach(async () => {
+        // Clean up: Delete user and profile to ensure test isolation
+        await db.query('DELETE FROM users WHERE id = $1', [putTestUserId]);
+        await db.query('DELETE FROM user_profiles WHERE user_id = $1', [putTestUserId]);
+    });
+
+    // =====================================================================
+    // DELETE /api/profile tests
+    // =====================================================================
+
+    it('should delete a user profile and all associated child records', async () => {
+        // 1. Create a profile with master and some child data
+        const initialProfile = {
+            forename: 'Delete',
+            surname: 'Me',
+            employment_records: [{ employer: 'Old Job', position: 'Old Role', start_date: '2010-01-01T00:00:00.000Z', end_date: null }],
+            education_records: [{ institution: 'Old School', qualification_type: 'Diploma', start_date: '2008-01-01T00:00:00.000Z', end_date: null, degree_diploma: 'Diploma' }],
+        };
+        await request(app)
+            .put('/api/profile')
+            .set('Authorization', `Bearer ${putTestAuthToken}`)
+            .send(initialProfile);
+
+        // 2. Verify it exists via GET
+        const getResBeforeDelete = await request(app)
+            .get('/api/profile')
+            .set('Authorization', `Bearer ${putTestAuthToken}`);
+        expect(getResBeforeDelete.statusCode).toBe(200);
+        expect(getResBeforeDelete.body.forename).toBe('Delete');
+        expect(getResBeforeDelete.body.employment_records).toHaveLength(1);
+        expect(getResBeforeDelete.body.education_records).toHaveLength(1);
+
+        // 3. Perform the DELETE operation
+        const deleteRes = await request(app)
+            .delete('/api/profile')
+            .set('Authorization', `Bearer ${putTestAuthToken}`);
+
+        expect(deleteRes.statusCode).toBe(204); // Expect 204 No Content
+
+        // 4. Verify the profile no longer exists via GET
+        const getResAfterDelete = await request(app)
+            .get('/api/profile')
+            .set('Authorization', `Bearer ${putTestAuthToken}`);
+
+        expect(getResAfterDelete.statusCode).toBe(200); // GET returns 200 with partial/empty profile if user exists but profile base doesn't
+        expect(getResAfterDelete.body.forename).toBeNull(); // Should be null after profile deletion
+        expect(getResAfterDelete.body.surname).toBeNull(); // Should be null after profile deletion
+        expect(getResAfterDelete.body.employment_records).toHaveLength(0); // Should be empty arrays
+        expect(getResAfterDelete.body.education_records).toHaveLength(0);
+        expect(getResAfterDelete.body.user_documents).toHaveLength(0);
+        // Ensure no profile_id is returned, only base user details
+        expect(getResAfterDelete.body.id).toBeUndefined(); // Assuming profile_id isn't set if no profile
+        expect(getResAfterDelete.body.profile_id).toBeUndefined(); // Check both possible property names
+
+
+        // Optional: Direct database check to ensure actual deletion (more advanced)
+        // const profileDbCheck = await db.query('SELECT * FROM user_profiles WHERE user_id = $1', [putTestUserId]);
+        // expect(profileDbCheck.rows).toHaveLength(0);
+    });
+
+    it('should return 404 if attempting to delete a profile that does not exist', async () => {
+        // Ensure no profile exists for this user initially
+        await request(app)
+            .delete('/api/profile')
+            .set('Authorization', `Bearer ${putTestAuthToken}`); // Delete if it exists from a prior test run
+
+        // Attempt to delete again
+        const deleteRes = await request(app)
+            .delete('/api/profile')
+            .set('Authorization', `Bearer ${putTestAuthToken}`);
+
+        expect(deleteRes.statusCode).toBe(404);
+        expect(deleteRes.body.message).toBe('Profile not found for this user.');
+    });
+
+    it('should return 401 if attempting to delete a profile without authentication', async () => {
+        const deleteRes = await request(app)
+            .delete('/api/profile')
+            .send({}); // No token
+
+        expect(deleteRes.statusCode).toBe(401);
+        expect(deleteRes.body.message).toBe('Unauthorized: No token provided.');
+    });
+});
