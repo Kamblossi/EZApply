@@ -97,7 +97,7 @@ CREATE TABLE reference_contacts (
 
 CREATE TABLE user_documents (
     id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_profile_id UUID NOT NULL REFERENCES user_profiles(id) ON DELETE CASCADE,
     file_name   TEXT,
     file_path   TEXT,
     document_type TEXT,

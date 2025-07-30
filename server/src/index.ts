@@ -3,7 +3,7 @@ import dotenv from 'dotenv';
 
 import { authRouter } from './routes/auth';
 import { meRouter } from './routes/me';
-import { profileRouter } from './routes/profile';
+import profileRouter from './routes/profile';
 import { requireAuth } from './middleware/auth';
 
 dotenv.config();
