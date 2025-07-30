@@ -87,4 +87,109 @@ jobsRouter.post('/', async (req, res) => {
   }
 });
 
+
+// =====================================================================
+// PUT /api/jobs/:id - Update an existing job listing
+// =====================================================================
+jobsRouter.put('/:id', async (req, res) => {
+  const jobId = req.params.id; // Get ID from URL parameters
+
+  let client;
+  try {
+    // Check for ID mismatch BEFORE validation
+    if (req.body.id && req.body.id !== jobId) {
+      return res.status(400).json({ message: 'Mismatched ID in URL and request body.' });
+    }
+
+    // Validate incoming data
+    const updatedJobData = JobDTO.parse(req.body);
+
+    client = await db.connect();
+
+    // Check if the job exists
+    const checkResult = await client.query('SELECT id FROM jobs WHERE id = $1;', [jobId]);
+    if (checkResult.rowCount === 0) {
+      return res.status(404).json({ message: 'Job not found.' });
+    }
+
+    // Perform the update
+    const updateResult = await client.query(
+      `UPDATE jobs SET
+        title = $1,
+        company = $2,
+        location = $3,
+        description = $4,
+        url = $5,
+        status = $6,
+        posted_date = $7,
+        deadline_date = $8,
+        updated_at = NOW()
+       WHERE id = $9
+       RETURNING *;`,
+      [
+        updatedJobData.title,
+        updatedJobData.company,
+        updatedJobData.location || null,
+        updatedJobData.description || null,
+        updatedJobData.url || null,
+        updatedJobData.status || 'open',
+        updatedJobData.posted_date ? updatedJobData.posted_date.toISOString() : null,
+        updatedJobData.deadline_date ? updatedJobData.deadline_date.toISOString() : null,
+        jobId,
+      ]
+    );
+
+    const updatedJob = updateResult.rows[0];
+    // Format dates back to Date objects for consistent DTO response
+    const formattedJob = {
+        ...updatedJob,
+        posted_date: updatedJob.posted_date ? new Date(updatedJob.posted_date) : null,
+        deadline_date: updatedJob.deadline_date ? new Date(updatedJob.deadline_date) : null,
+        created_at: new Date(updatedJob.created_at),
+        updated_at: new Date(updatedJob.updated_at),
+    };
+
+    const validatedUpdatedJob = JobDTO.parse(formattedJob); // Re-validate before sending
+    res.status(200).json(validatedUpdatedJob);
+
+  } catch (error: any) {
+    console.error(`Error updating job ${jobId}:`, error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: 'Validation error', errors: error.issues });
+    }
+    res.status(500).json({ message: 'Failed to update job', error: error.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+
+// =====================================================================
+// DELETE /api/jobs/:id - Delete a job listing
+// =====================================================================
+jobsRouter.delete('/:id', async (req, res) => {
+  const jobId = req.params.id; // Get ID from URL parameters
+
+  let client;
+  try {
+    client = await db.connect();
+
+    // Perform the deletion
+    // Due to ON DELETE CASCADE on applications table, applications linked to this job will also be deleted.
+    const deleteResult = await client.query('DELETE FROM jobs WHERE id = $1 RETURNING id;', [jobId]);
+
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({ message: 'Job not found or already deleted.' });
+    }
+
+    res.status(204).send(); // 204 No Content for successful deletion
+
+  } catch (error: any) {
+    console.error(`Error deleting job ${jobId}:`, error);
+    res.status(500).json({ message: 'Failed to delete job', error: error.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 export default jobsRouter;

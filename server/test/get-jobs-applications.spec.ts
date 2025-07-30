@@ -431,4 +431,484 @@ describe('Jobs and Applications Endpoints', () => {
     expect(getRes.statusCode).toBe(200);
     expect(getRes.body.some((app: any) => app.id === res.body.id)).toBe(true);
   });
+
+  // --- PUT /api/jobs/:id tests ---
+
+  it('PUT /api/jobs/:id should return 401 if no authentication token is provided', async () => {
+    const res = await request(app).put('/api/jobs/some-uuid').send({});
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Unauthorized: No token provided.');
+  });
+
+  it('PUT /api/jobs/:id should return 404 if job does not exist', async () => {
+    const nonExistentJobId = 'f0e1a0e1-b1c0-d2e3-f4a5-b6c7d8e9f0a1'; // Valid UUID, but not in DB
+    const updateData = { title: 'Updated Title', company: 'Updated Company' };
+
+    const res = await request(app)
+      .put(`/api/jobs/${nonExistentJobId}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(updateData);
+
+    expect(res.statusCode).toBe(404);
+    expect(res.body.message).toBe('Job not found.');
+  });
+
+  it('PUT /api/jobs/:id should return 400 for invalid update data', async () => {
+    // First, create a job
+    const jobToUpdate = {
+      id: randomUUID(),
+      title: 'Job to Update',
+      company: 'Company X',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobToUpdate.id, jobToUpdate.title, jobToUpdate.company, jobToUpdate.status, jobToUpdate.posted_date.toISOString(), jobToUpdate.location]);
+
+    const invalidUpdate = { title: '', company: 123 }; // Invalid data
+
+    const res = await request(app)
+      .put(`/api/jobs/${jobToUpdate.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(invalidUpdate);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toHaveProperty('message', 'Validation error');
+    expect(Array.isArray(res.body.errors)).toBe(true);
+    const titleError = res.body.errors.find((err: any) => err.path && err.path.includes('title'));
+    expect(titleError).toBeDefined();
+  });
+
+  it('PUT /api/jobs/:id should update a job successfully', async () => {
+    // First, create a job
+    const jobToUpdate = {
+      id: randomUUID(),
+      title: 'Original Title',
+      company: 'Original Co',
+      status: 'open',
+      posted_date: new Date('2024-05-01T00:00:00.000Z'),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobToUpdate.id, jobToUpdate.title, jobToUpdate.company, jobToUpdate.status, jobToUpdate.posted_date.toISOString(), jobToUpdate.location]);
+
+    const updatedData = {
+      title: 'New Title',
+      company: 'New Company',
+      description: 'Updated description.',
+      status: 'closed',
+      deadline_date: new Date('2024-06-30T23:59:59.000Z'),
+      location: 'New York'
+    };
+
+    const res = await request(app)
+      .put(`/api/jobs/${jobToUpdate.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(updatedData);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.id).toBe(jobToUpdate.id);
+    expect(res.body.title).toBe(updatedData.title);
+    expect(res.body.company).toBe(updatedData.company);
+    expect(res.body.description).toBe(updatedData.description);
+    expect(res.body.status).toBe(updatedData.status);
+    expect(new Date(res.body.deadline_date)).toEqual(updatedData.deadline_date);
+    expect(res.body.posted_date).toBeDefined(); // Should still be original posted_date
+
+    // Verify changes in database
+    const dbRes = await db.query('SELECT * FROM jobs WHERE id = $1', [jobToUpdate.id]);
+    expect(dbRes.rows[0].title).toBe(updatedData.title);
+    expect(dbRes.rows[0].company).toBe(updatedData.company);
+  });
+
+  it('PUT /api/jobs/:id should return 400 if ID in URL and body mismatch', async () => {
+    const jobToUpdate = {
+      id: randomUUID(),
+      title: 'Job to Update',
+      company: 'Company Y',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobToUpdate.id, jobToUpdate.title, jobToUpdate.company, jobToUpdate.status, jobToUpdate.posted_date.toISOString(), jobToUpdate.location]);
+
+    const updateData = { id: randomUUID(), title: 'New Title' }; // Mismatched ID
+
+    const res = await request(app)
+      .put(`/api/jobs/${jobToUpdate.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(updateData);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.message).toBe('Mismatched ID in URL and request body.');
+  });
+
+  // --- DELETE /api/jobs/:id tests ---
+
+  it('DELETE /api/jobs/:id should return 401 if no authentication token is provided', async () => {
+    const res = await request(app).delete('/api/jobs/some-uuid');
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Unauthorized: No token provided.');
+  });
+
+  it('DELETE /api/jobs/:id should return 404 if job does not exist', async () => {
+    const nonExistentJobId = randomUUID(); // Valid UUID, but not in DB
+
+    const res = await request(app)
+      .delete(`/api/jobs/${nonExistentJobId}`)
+      .set('Authorization', `Bearer ${authToken}`);
+
+    expect(res.statusCode).toBe(404);
+    expect(res.body.message).toBe('Job not found or already deleted.');
+  });
+
+  it('DELETE /api/jobs/:id should delete a job successfully and cascade to applications', async () => {
+    // 1. Create a job
+    const jobToDelete = {
+      id: randomUUID(),
+      title: 'Job to Delete',
+      company: 'Delete Co',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobToDelete.id, jobToDelete.title, jobToDelete.company, jobToDelete.status, jobToDelete.posted_date.toISOString(), jobToDelete.location]);
+
+    // 2. Create an application for that job
+    const appToDelete = {
+      id: randomUUID(),
+      user_id: testUserId,
+      job_id: jobToDelete.id,
+      status: 'submitted'
+    };
+    await db.query(`INSERT INTO applications (id, user_id, job_id, status) VALUES ($1, $2, $3, $4);`,
+                   [appToDelete.id, appToDelete.user_id, appToDelete.job_id, appToDelete.status]);
+
+    // Verify job and application exist
+    const jobCheck = await db.query('SELECT id FROM jobs WHERE id = $1', [jobToDelete.id]);
+    expect(jobCheck.rows).toHaveLength(1);
+    const appCheck = await db.query('SELECT id FROM applications WHERE id = $1', [appToDelete.id]);
+    expect(appCheck.rows).toHaveLength(1);
+
+    // 3. Perform the DELETE operation on the job
+    const res = await request(app)
+      .delete(`/api/jobs/${jobToDelete.id}`)
+      .set('Authorization', `Bearer ${authToken}`);
+
+    expect(res.statusCode).toBe(204); // No Content
+
+    // 4. Verify job is deleted
+    const jobCheckAfterDelete = await db.query('SELECT id FROM jobs WHERE id = $1', [jobToDelete.id]);
+    expect(jobCheckAfterDelete.rows).toHaveLength(0);
+
+    // 5. Verify application is also deleted due to cascade
+    const appCheckAfterDelete = await db.query('SELECT id FROM applications WHERE id = $1', [appToDelete.id]);
+    expect(appCheckAfterDelete.rows).toHaveLength(0);
+  });
+
+  // --- PUT /api/applications/:id tests ---
+
+  it('PUT /api/applications/:id should return 401 if no authentication token is provided', async () => {
+    const res = await request(app).put('/api/applications/some-uuid').send({});
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Unauthorized: No token provided.');
+  });
+
+  it('PUT /api/applications/:id should return 404 if application does not exist or does not belong to user', async () => {
+    // Create a job for the app
+    const jobForApp = {
+      id: randomUUID(),
+      title: 'Job for App',
+      company: 'Comp A',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobForApp.id, jobForApp.title, jobForApp.company, jobForApp.status, jobForApp.posted_date.toISOString(), jobForApp.location]);
+
+    // Create an application for ANOTHER user
+    const anotherUserId = randomUUID();
+    const anotherUserEmail = `anotheruser_${Date.now()}@example.com`;
+    await db.query('INSERT INTO users (id, email, password_hash, role) VALUES ($1, $2, $3, $4);', 
+                   [anotherUserId, anotherUserEmail, 'hashedpass', 'user']);
+    const appForOtherUser = {
+      id: randomUUID(),
+      user_id: anotherUserId,
+      job_id: jobForApp.id,
+      status: 'draft'
+    };
+    await db.query(`INSERT INTO applications (id, user_id, job_id, status) VALUES ($1, $2, $3, $4);`,
+                   [appForOtherUser.id, appForOtherUser.user_id, appForOtherUser.job_id, appForOtherUser.status]);
+
+    // Try to update it with authToken (testUser)
+    const updateData = { status: 'submitted' };
+    const res = await request(app)
+      .put(`/api/applications/${appForOtherUser.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(updateData);
+
+    expect(res.statusCode).toBe(404);
+    expect(res.body.message).toBe('Application not found or does not belong to user.');
+
+    // Clean up the other user
+    await db.query('DELETE FROM users WHERE id = $1', [anotherUserId]);
+  });
+
+  it('PUT /api/applications/:id should return 400 for invalid update data', async () => {
+    // Create a job for the app
+    const jobForApp = {
+      id: randomUUID(),
+      title: 'Job for App 2',
+      company: 'Comp B',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobForApp.id, jobForApp.title, jobForApp.company, jobForApp.status, jobForApp.posted_date.toISOString(), jobForApp.location]);
+
+    // Create an application
+    const appToUpdate = {
+      id: randomUUID(),
+      user_id: testUserId,
+      job_id: jobForApp.id,
+      status: 'draft'
+    };
+    await db.query(`INSERT INTO applications (id, user_id, job_id, status) VALUES ($1, $2, $3, $4);`,
+                   [appToUpdate.id, appToUpdate.user_id, appToUpdate.job_id, appToUpdate.status]);
+
+    const invalidUpdate = { status: '' }; // Invalid status
+
+    const res = await request(app)
+      .put(`/api/applications/${appToUpdate.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(invalidUpdate);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toHaveProperty('message', 'Validation error');
+    expect(Array.isArray(res.body.errors)).toBe(true);
+    const statusError = res.body.errors.find((err: any) => err.path && err.path.includes('status'));
+    expect(statusError).toBeDefined();
+  });
+
+  it('PUT /api/applications/:id should update an application successfully', async () => {
+    // Create a job
+    const jobForApp = {
+      id: randomUUID(),
+      title: 'Job for App 3',
+      company: 'Comp C',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobForApp.id, jobForApp.title, jobForApp.company, jobForApp.status, jobForApp.posted_date.toISOString(), jobForApp.location]);
+
+    // Create a second job for updating job_id
+    const newJobForApp = {
+      id: randomUUID(),
+      title: 'New Job for App',
+      company: 'Comp D',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Hybrid'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [newJobForApp.id, newJobForApp.title, newJobForApp.company, newJobForApp.status, newJobForApp.posted_date.toISOString(), newJobForApp.location]);
+
+    // Create an application
+    const appToUpdate = {
+      id: randomUUID(),
+      user_id: testUserId,
+      job_id: jobForApp.id,
+      status: 'draft',
+      application_date: new Date('2024-05-10T00:00:00.000Z')
+    };
+    await db.query(`INSERT INTO applications (id, user_id, job_id, status, application_date) VALUES ($1, $2, $3, $4, $5);`,
+                   [appToUpdate.id, appToUpdate.user_id, appToUpdate.job_id, appToUpdate.status, appToUpdate.application_date.toISOString()]);
+
+    const updatedData = {
+      job_id: newJobForApp.id, // Changing job_id
+      status: 'interview',
+      notes: 'Scheduled for final interview.',
+      application_date: new Date('2024-05-15T10:00:00.000Z')
+    };
+
+    const res = await request(app)
+      .put(`/api/applications/${appToUpdate.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(updatedData);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.id).toBe(appToUpdate.id);
+    expect(res.body.user_id).toBe(testUserId);
+    expect(res.body.job_id).toBe(newJobForApp.id); // Check updated job_id
+    expect(res.body.status).toBe(updatedData.status);
+    expect(res.body.notes).toBe(updatedData.notes);
+    expect(new Date(res.body.application_date)).toEqual(updatedData.application_date);
+
+    // Verify embedded job_details reflect the NEW job
+    expect(res.body.job_details).toBeDefined();
+    expect(res.body.job_details.id).toBe(newJobForApp.id);
+    expect(res.body.job_details.title).toBe(newJobForApp.title);
+
+    // Verify changes in database
+    const dbRes = await db.query('SELECT * FROM applications WHERE id = $1', [appToUpdate.id]);
+    expect(dbRes.rows[0].job_id).toBe(newJobForApp.id);
+    expect(dbRes.rows[0].status).toBe(updatedData.status);
+  });
+
+  it('PUT /api/applications/:id should return 404 if new job_id for application does not exist', async () => {
+    // Create an application
+    const jobForApp = {
+      id: randomUUID(),
+      title: 'Job for App 4',
+      company: 'Comp E',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobForApp.id, jobForApp.title, jobForApp.company, jobForApp.status, jobForApp.posted_date.toISOString(), jobForApp.location]);
+    const appToUpdate = {
+      id: randomUUID(),
+      user_id: testUserId,
+      job_id: jobForApp.id,
+      status: 'draft'
+    };
+    await db.query(`INSERT INTO applications (id, user_id, job_id, status) VALUES ($1, $2, $3, $4);`,
+                   [appToUpdate.id, appToUpdate.user_id, appToUpdate.job_id, appToUpdate.status]);
+
+    const nonExistentJobId = randomUUID(); // Valid UUID, but not in DB
+    const updateData = { status: 'submitted', job_id: nonExistentJobId };
+
+    const res = await request(app)
+      .put(`/api/applications/${appToUpdate.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(updateData);
+
+    expect(res.statusCode).toBe(404);
+    expect(res.body.message).toBe('New job ID for application not found.');
+  });
+
+  it('PUT /api/applications/:id should return 400 if ID in URL and body mismatch', async () => {
+    const jobForApp = {
+      id: randomUUID(),
+      title: 'Job for App 5',
+      company: 'Comp F',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobForApp.id, jobForApp.title, jobForApp.company, jobForApp.status, jobForApp.posted_date.toISOString(), jobForApp.location]);
+    const appToUpdate = {
+      id: randomUUID(),
+      user_id: testUserId,
+      job_id: jobForApp.id,
+      status: 'draft'
+    };
+    await db.query(`INSERT INTO applications (id, user_id, job_id, status) VALUES ($1, $2, $3, $4);`,
+                   [appToUpdate.id, appToUpdate.user_id, appToUpdate.job_id, appToUpdate.status]);
+
+    const updateData = { id: randomUUID(), status: 'submitted' }; // Mismatched ID
+
+    const res = await request(app)
+      .put(`/api/applications/${appToUpdate.id}`)
+      .set('Authorization', `Bearer ${authToken}`)
+      .send(updateData);
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body.message).toBe('Mismatched ID in URL and request body.');
+  });
+
+  // --- DELETE /api/applications/:id tests ---
+
+  it('DELETE /api/applications/:id should return 401 if no authentication token is provided', async () => {
+    const res = await request(app).delete('/api/applications/some-uuid');
+    expect(res.statusCode).toBe(401);
+    expect(res.body.message).toBe('Unauthorized: No token provided.');
+  });
+
+  it('DELETE /api/applications/:id should return 404 if application does not exist or does not belong to user', async () => {
+    // Create a job for the app
+    const jobForApp = {
+      id: randomUUID(),
+      title: 'Job for App Del',
+      company: 'Comp G',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobForApp.id, jobForApp.title, jobForApp.company, jobForApp.status, jobForApp.posted_date.toISOString(), jobForApp.location]);
+
+    // Create an application for ANOTHER user
+    const anotherUserId = randomUUID();
+    const anotherUserEmail = `anotheruser2_${Date.now()}@example.com`;
+    await db.query('INSERT INTO users (id, email, password_hash, role) VALUES ($1, $2, $3, $4);', 
+                   [anotherUserId, anotherUserEmail, 'hashedpass', 'user']);
+    const appForOtherUser = {
+      id: randomUUID(),
+      user_id: anotherUserId,
+      job_id: jobForApp.id,
+      status: 'draft'
+    };
+    await db.query(`INSERT INTO applications (id, user_id, job_id, status) VALUES ($1, $2, $3, $4);`,
+                   [appForOtherUser.id, appForOtherUser.user_id, appForOtherUser.job_id, appForOtherUser.status]);
+
+    // Try to delete it with authToken (testUser)
+    const res = await request(app)
+      .delete(`/api/applications/${appForOtherUser.id}`)
+      .set('Authorization', `Bearer ${authToken}`);
+
+    expect(res.statusCode).toBe(404);
+    expect(res.body.message).toBe('Application not found or does not belong to user.');
+
+    // Clean up the other user
+    await db.query('DELETE FROM users WHERE id = $1', [anotherUserId]);
+  });
+
+  it('DELETE /api/applications/:id should delete an application successfully', async () => {
+    // Create a job for the app
+    const jobForApp = {
+      id: randomUUID(),
+      title: 'Job for App Del 2',
+      company: 'Comp H',
+      status: 'open',
+      posted_date: new Date(),
+      location: 'Remote'
+    };
+    await db.query(`INSERT INTO jobs (id, title, company, status, posted_date, location) VALUES ($1, $2, $3, $4, $5, $6);`,
+                   [jobForApp.id, jobForApp.title, jobForApp.company, jobForApp.status, jobForApp.posted_date.toISOString(), jobForApp.location]);
+
+    // Create an application
+    const appToDelete = {
+      id: randomUUID(),
+      user_id: testUserId,
+      job_id: jobForApp.id,
+      status: 'submitted'
+    };
+    await db.query(`INSERT INTO applications (id, user_id, job_id, status) VALUES ($1, $2, $3, $4);`,
+                   [appToDelete.id, appToDelete.user_id, appToDelete.job_id, appToDelete.status]);
+
+    // Verify application exists
+    const appCheck = await db.query('SELECT id FROM applications WHERE id = $1', [appToDelete.id]);
+    expect(appCheck.rows).toHaveLength(1);
+
+    // Perform the DELETE operation
+    const res = await request(app)
+      .delete(`/api/applications/${appToDelete.id}`)
+      .set('Authorization', `Bearer ${authToken}`);
+
+    expect(res.statusCode).toBe(204); // No Content
+
+    // Verify application is deleted
+    const appCheckAfterDelete = await db.query('SELECT id FROM applications WHERE id = $1', [appToDelete.id]);
+    expect(appCheckAfterDelete.rows).toHaveLength(0);
+  });
 });

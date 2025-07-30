@@ -196,4 +196,136 @@ applicationsRouter.post('/', async (req, res) => {
   }
 });
 
+
+// =====================================================================
+// PUT /api/applications/:id - Update an existing application for the authenticated user
+// =====================================================================
+applicationsRouter.put('/:id', async (req, res) => {
+  const applicationId = req.params.id; // Get ID from URL parameters
+  const userId = (req as any).user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized: User ID not found.' });
+  }
+
+  let client;
+  try {
+    // Check for ID mismatch BEFORE validation
+    if (req.body.id && req.body.id !== applicationId) {
+      return res.status(400).json({ message: 'Mismatched ID in URL and request body.' });
+    }
+
+    // Validate incoming data for updates (make fields optional since this is a partial update)
+    const updatedApplicationData = ApplicationDTO.omit({ user_id: true }).partial().parse(req.body);
+
+    client = await db.connect();
+
+    // Check if the application exists AND belongs to the authenticated user
+    const checkResult = await client.query('SELECT id, job_id FROM applications WHERE id = $1 AND user_id = $2;', [applicationId, userId]);
+    if (checkResult.rowCount === 0) {
+      return res.status(404).json({ message: 'Application not found or does not belong to user.' });
+    }
+    const existingJobId = checkResult.rows[0].job_id;
+
+    // If job_id is being updated, verify the new job_id exists
+    if (updatedApplicationData.job_id && updatedApplicationData.job_id !== existingJobId) {
+        const newJobCheckResult = await client.query('SELECT id FROM jobs WHERE id = $1;', [updatedApplicationData.job_id]);
+        if (newJobCheckResult.rowCount === 0) {
+            return res.status(404).json({ message: 'New job ID for application not found.' });
+        }
+    }
+
+    // Perform the update
+    const updateResult = await client.query(
+      `UPDATE applications SET
+        job_id = $1,
+        status = $2,
+        application_date = $3,
+        notes = $4,
+        updated_at = NOW()
+       WHERE id = $5 AND user_id = $6
+       RETURNING *;`,
+      [
+        updatedApplicationData.job_id || existingJobId, // Use existing if not provided
+        updatedApplicationData.status || 'draft',
+        updatedApplicationData.application_date ? updatedApplicationData.application_date.toISOString() : null,
+        updatedApplicationData.notes || null,
+        applicationId,
+        userId,
+      ]
+    );
+
+    const updatedApplication = updateResult.rows[0];
+
+    // Format dates back to Date objects for consistent DTO response
+    const formattedApplication = {
+        ...updatedApplication,
+        application_date: updatedApplication.application_date ? new Date(updatedApplication.application_date) : null,
+        created_at: new Date(updatedApplication.created_at),
+        updated_at: new Date(updatedApplication.updated_at),
+    };
+
+    // Re-fetch the job details to include in the response, consistent with GET
+    const jobDetailsResult = await client.query('SELECT * FROM jobs WHERE id = $1;', [formattedApplication.job_id]);
+    const jobDetails = jobDetailsResult.rows[0];
+    const formattedJobDetails = {
+        ...jobDetails,
+        posted_date: jobDetails.posted_date ? new Date(jobDetails.posted_date) : null,
+        deadline_date: jobDetails.deadline_date ? new Date(jobDetails.deadline_date) : null,
+        created_at: new Date(jobDetails.created_at),
+        updated_at: new Date(jobDetails.updated_at),
+    };
+    const validatedJobDetails = JobDTO.parse(formattedJobDetails);
+
+    const validatedApplicationResponse = {
+        ...ApplicationDTO.parse(formattedApplication),
+        job_details: validatedJobDetails
+    };
+
+    res.status(200).json(validatedApplicationResponse);
+
+  } catch (error: any) {
+    console.error(`Error updating application ${applicationId}:`, error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ message: 'Validation error', errors: error.issues });
+    }
+    res.status(500).json({ message: 'Failed to update application', error: error.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+
+// =====================================================================
+// DELETE /api/applications/:id - Delete an application for the authenticated user
+// =====================================================================
+applicationsRouter.delete('/:id', async (req, res) => {
+  const applicationId = req.params.id; // Get ID from URL parameters
+  const userId = (req as any).user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized: User ID not found.' });
+  }
+
+  let client;
+  try {
+    client = await db.connect();
+
+    // Perform the deletion, ensuring it belongs to the authenticated user
+    const deleteResult = await client.query('DELETE FROM applications WHERE id = $1 AND user_id = $2 RETURNING id;', [applicationId, userId]);
+
+    if (deleteResult.rowCount === 0) {
+      return res.status(404).json({ message: 'Application not found or does not belong to user.' });
+    }
+
+    res.status(204).send(); // 204 No Content for successful deletion
+
+  } catch (error: any) {
+    console.error(`Error deleting application ${applicationId}:`, error);
+    res.status(500).json({ message: 'Failed to delete application', error: error.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 export default applicationsRouter;
