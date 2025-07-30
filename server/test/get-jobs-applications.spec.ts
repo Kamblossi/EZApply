@@ -57,10 +57,13 @@ describe('Jobs and Applications Endpoints', () => {
     expect(res.body.message).toBe('Unauthorized: No token provided.');
   });
 
-  it('GET /api/jobs should return an empty array if no jobs exist', async () => {
+  it('GET /api/jobs should return an empty result if no jobs exist', async () => {
     const res = await request(app).get('/api/jobs').set('Authorization', `Bearer ${authToken}`);
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual([]);
+    expect(res.body.data).toEqual([]);
+    expect(res.body.pagination.totalCount).toBe(0);
+    expect(res.body.pagination.currentPage).toBe(1);
+    expect(res.body.pagination.totalPages).toBe(0);
   });
 
   it('GET /api/jobs should return a list of jobs when they exist', async () => {
@@ -102,13 +105,16 @@ describe('Jobs and Applications Endpoints', () => {
 
     const res = await request(app).get('/api/jobs').set('Authorization', `Bearer ${authToken}`);
     expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveLength(2);
+    expect(res.body.data).toHaveLength(2);
+    expect(res.body.pagination.totalCount).toBe(2);
+    expect(res.body.pagination.currentPage).toBe(1);
+    
     // Check if the latest posted_date comes first due to ORDER BY
-    expect(res.body[0].title).toBe('Senior Developer');
-    expect(res.body[1].title).toBe('Software Engineer');
+    expect(res.body.data[0].title).toBe('Senior Developer');
+    expect(res.body.data[1].title).toBe('Software Engineer');
 
     // Validate structure with DTO
-    res.body.forEach((job: any) => {
+    res.body.data.forEach((job: any) => {
       const parsedJob = JobDTO.safeParse(job);
       expect(parsedJob.success).toBe(true);
       // Check date types - they should be valid date strings
@@ -125,10 +131,13 @@ describe('Jobs and Applications Endpoints', () => {
     expect(res.body.message).toBe('Unauthorized: No token provided.');
   });
 
-  it('GET /api/applications should return an empty array if no applications exist for the user', async () => {
+  it('GET /api/applications should return an empty result if no applications exist for the user', async () => {
     const res = await request(app).get('/api/applications').set('Authorization', `Bearer ${authToken}`);
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual([]);
+    expect(res.body.data).toEqual([]);
+    expect(res.body.pagination.totalCount).toBe(0);
+    expect(res.body.pagination.currentPage).toBe(1);
+    expect(res.body.pagination.totalPages).toBe(0);
   });
 
   it('GET /api/applications should return a list of applications for the authenticated user, with job details', async () => {
@@ -193,9 +202,10 @@ describe('Jobs and Applications Endpoints', () => {
     const res = await request(app).get('/api/applications').set('Authorization', `Bearer ${authToken}`);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveLength(1); // Should only return the testUser's application
+    expect(res.body.data).toHaveLength(1); // Should only return the testUser's application
+    expect(res.body.pagination.totalCount).toBe(1);
 
-    const fetchedApp = res.body[0];
+    const fetchedApp = res.body.data[0];
     expect(fetchedApp.id).toBe(applicationData.id);
     expect(fetchedApp.user_id).toBe(testUserId);
     expect(fetchedApp.job_id).toBe(jobForApp.id);
@@ -255,15 +265,16 @@ describe('Jobs and Applications Endpoints', () => {
     const res = await request(app).get('/api/applications').set('Authorization', `Bearer ${authToken}`);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toHaveLength(2);
+    expect(res.body.data).toHaveLength(2);
+    expect(res.body.pagination.totalCount).toBe(2);
     
     // Should be sorted by application_date DESC, so the latest should come first
-    expect(res.body[0].notes).toBe('Second application');
-    expect(res.body[1].notes).toBe('First application');
+    expect(res.body.data[0].notes).toBe('Second application');
+    expect(res.body.data[1].notes).toBe('First application');
     
     // Verify both have job_details
-    expect(res.body[0].job_details.title).toBe('Backend Developer');
-    expect(res.body[1].job_details.title).toBe('Frontend Developer');
+    expect(res.body.data[0].job_details.title).toBe('Backend Developer');
+    expect(res.body.data[1].job_details.title).toBe('Frontend Developer');
   });
 
   // --- POST /api/jobs tests ---
@@ -309,7 +320,7 @@ describe('Jobs and Applications Endpoints', () => {
     // Verify it's returned by GET /api/jobs
     const getRes = await request(app).get('/api/jobs').set('Authorization', `Bearer ${authToken}`);
     expect(getRes.statusCode).toBe(200);
-    expect(getRes.body.some((job: any) => job.id === res.body.id)).toBe(true);
+    expect(getRes.body.data.some((job: any) => job.id === res.body.id)).toBe(true);
   });
 
   it('POST /api/jobs should return 400 for invalid job data', async () => {
@@ -429,7 +440,7 @@ describe('Jobs and Applications Endpoints', () => {
     // Verify it's returned by GET /api/applications
     const getRes = await request(app).get('/api/applications').set('Authorization', `Bearer ${authToken}`);
     expect(getRes.statusCode).toBe(200);
-    expect(getRes.body.some((app: any) => app.id === res.body.id)).toBe(true);
+    expect(getRes.body.data.some((app: any) => app.id === res.body.id)).toBe(true);
   });
 
   // --- PUT /api/jobs/:id tests ---

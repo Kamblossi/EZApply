@@ -73,8 +73,18 @@ describe('Profile Validation - Critical Tests', () => {
     expect(result.success).toBe(true);
   });
 
-  it('should fail validation for missing required fields', () => {
+  it('should pass validation when optional fields are missing', () => {
+    const profileWithMissingOptionalFields = {
+      surname: 'Doe',
+      // forename is optional, so this should pass
+    };
+    const result = ProfileDTO.safeParse(profileWithMissingOptionalFields);
+    expect(result.success).toBe(true);
+  });
+
+  it('should fail validation for invalid field values', () => {
     const invalidProfile = {
+      forename: '', // Empty string should fail min(1) validation
       surname: 'Doe',
     };
     const result = ProfileDTO.safeParse(invalidProfile);

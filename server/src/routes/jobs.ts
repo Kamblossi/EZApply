@@ -7,12 +7,110 @@ import { z } from 'zod';
 const jobsRouter = Router();
 
 // =====================================================================
-// GET /api/jobs - Fetch all job listings
+// GET /api/jobs - Fetch job listings with filtering, pagination, and search
 // =====================================================================
 jobsRouter.get('/', async (req, res) => {
   try {
-    const result = await db.query('SELECT * FROM jobs ORDER BY posted_date DESC, created_at DESC;');
-    const jobs = result.rows.map(row => ({
+    // Extract query parameters with defaults
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100); // Max 100 per page
+    const offset = (page - 1) * limit;
+
+    // Search parameters
+    const search = req.query.search as string;
+
+    // Filter parameters
+    const status = req.query.status as string;
+    const company = req.query.company as string;
+    const location = req.query.location as string;
+    const postedAfter = req.query.posted_after as string;
+    const postedBefore = req.query.posted_before as string;
+    const deadlineAfter = req.query.deadline_after as string;
+    const deadlineBefore = req.query.deadline_before as string;
+
+    // Build dynamic SQL query
+    let baseQuery = 'SELECT * FROM jobs';
+    let countQuery = 'SELECT COUNT(*) as total FROM jobs';
+    const conditions: string[] = [];
+    const queryParams: any[] = [];
+    let paramIndex = 1;
+
+    // Add search functionality (searches across title, company, description, location)
+    if (search && search.trim()) {
+      conditions.push(`(
+        title ILIKE $${paramIndex} OR 
+        company ILIKE $${paramIndex} OR 
+        description ILIKE $${paramIndex} OR 
+        location ILIKE $${paramIndex}
+      )`);
+      queryParams.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    // Add filters
+    if (status) {
+      conditions.push(`status = $${paramIndex}`);
+      queryParams.push(status);
+      paramIndex++;
+    }
+
+    if (company) {
+      conditions.push(`company ILIKE $${paramIndex}`);
+      queryParams.push(`%${company}%`);
+      paramIndex++;
+    }
+
+    if (location) {
+      conditions.push(`location ILIKE $${paramIndex}`);
+      queryParams.push(`%${location}%`);
+      paramIndex++;
+    }
+
+    if (postedAfter) {
+      conditions.push(`posted_date >= $${paramIndex}`);
+      queryParams.push(postedAfter);
+      paramIndex++;
+    }
+
+    if (postedBefore) {
+      conditions.push(`posted_date <= $${paramIndex}`);
+      queryParams.push(postedBefore);
+      paramIndex++;
+    }
+
+    if (deadlineAfter) {
+      conditions.push(`deadline_date >= $${paramIndex}`);
+      queryParams.push(deadlineAfter);
+      paramIndex++;
+    }
+
+    if (deadlineBefore) {
+      conditions.push(`deadline_date <= $${paramIndex}`);
+      queryParams.push(deadlineBefore);
+      paramIndex++;
+    }
+
+    // Apply WHERE conditions if any exist
+    if (conditions.length > 0) {
+      const whereClause = ` WHERE ${conditions.join(' AND ')}`;
+      baseQuery += whereClause;
+      countQuery += whereClause;
+    }
+
+    // Add sorting and pagination
+    baseQuery += ` ORDER BY posted_date DESC, created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(limit, offset);
+
+    // Execute both queries
+    const [jobsResult, countResult] = await Promise.all([
+      db.query(baseQuery, queryParams),
+      db.query(countQuery, queryParams.slice(0, -2)) // Remove limit/offset params for count
+    ]);
+
+    const totalCount = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    const jobs = jobsResult.rows.map(row => ({
       ...row,
       posted_date: row.posted_date ? new Date(row.posted_date) : null,
       deadline_date: row.deadline_date ? new Date(row.deadline_date) : null,
@@ -22,7 +120,29 @@ jobsRouter.get('/', async (req, res) => {
 
     // Validate with Zod
     const validatedJobs = z.array(JobDTO).parse(jobs);
-    res.status(200).json(validatedJobs);
+
+    // Return paginated response with metadata
+    res.status(200).json({
+      data: validatedJobs,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalCount,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+        limit
+      },
+      filters: {
+        search: search || null,
+        status: status || null,
+        company: company || null,
+        location: location || null,
+        posted_after: postedAfter || null,
+        posted_before: postedBefore || null,
+        deadline_after: deadlineAfter || null,
+        deadline_before: deadlineBefore || null
+      }
+    });
 
   } catch (error: any) {
     console.error('Error fetching jobs:', error);

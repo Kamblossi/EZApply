@@ -8,8 +8,7 @@ import { z } from 'zod'; // Import z for array validation
 const applicationsRouter = Router();
 
 // =====================================================================
-// GET /api/applications - Fetch all applications for the authenticated user
-// (with optional job details)
+// GET /api/applications - Fetch applications for the authenticated user with filtering, pagination, and search
 // =====================================================================
 applicationsRouter.get('/', async (req, res) => {
   const userId = (req as any).user?.id; // Assuming authentication middleware populates req.user
@@ -19,7 +18,24 @@ applicationsRouter.get('/', async (req, res) => {
   }
 
   try {
-    const result = await db.query(`
+    // Extract query parameters with defaults
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = Math.min(parseInt(req.query.limit as string) || 20, 100); // Max 100 per page
+    const offset = (page - 1) * limit;
+
+    // Search parameters (searches across job title, company, and application notes)
+    const search = req.query.search as string;
+
+    // Filter parameters
+    const status = req.query.status as string;
+    const jobCompany = req.query.job_company as string;
+    const jobLocation = req.query.job_location as string;
+    const jobStatus = req.query.job_status as string;
+    const appliedAfter = req.query.applied_after as string;
+    const appliedBefore = req.query.applied_before as string;
+
+    // Build dynamic SQL query
+    let baseQuery = `
       SELECT
           a.id AS application_id,
           a.user_id,
@@ -29,7 +45,7 @@ applicationsRouter.get('/', async (req, res) => {
           a.notes,
           a.created_at AS application_created_at,
           a.updated_at AS application_updated_at,
-          j.id AS job_id_from_job, -- to avoid conflict with a.job_id
+          j.id AS job_id_from_job,
           j.title AS job_title,
           j.company AS job_company,
           j.location AS job_location,
@@ -45,15 +61,91 @@ applicationsRouter.get('/', async (req, res) => {
       JOIN
           jobs j ON a.job_id = j.id
       WHERE
-          a.user_id = $1
-      ORDER BY
-          a.application_date DESC, a.created_at DESC;
-    `, [userId]);
+          a.user_id = $1`;
 
-    const applications = result.rows.map(row => {
-      // Construct the nested job object for validation if needed, or directly flatten
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM applications a
+      JOIN jobs j ON a.job_id = j.id
+      WHERE a.user_id = $1`;
+
+    const conditions: string[] = [];
+    const queryParams: any[] = [userId]; // First param is always userId
+    let paramIndex = 2;
+
+    // Add search functionality (searches across job title, company, description, and application notes)
+    if (search && search.trim()) {
+      conditions.push(`(
+        j.title ILIKE $${paramIndex} OR 
+        j.company ILIKE $${paramIndex} OR 
+        j.description ILIKE $${paramIndex} OR
+        a.notes ILIKE $${paramIndex}
+      )`);
+      queryParams.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    // Add filters
+    if (status) {
+      conditions.push(`a.status = $${paramIndex}`);
+      queryParams.push(status);
+      paramIndex++;
+    }
+
+    if (jobCompany) {
+      conditions.push(`j.company ILIKE $${paramIndex}`);
+      queryParams.push(`%${jobCompany}%`);
+      paramIndex++;
+    }
+
+    if (jobLocation) {
+      conditions.push(`j.location ILIKE $${paramIndex}`);
+      queryParams.push(`%${jobLocation}%`);
+      paramIndex++;
+    }
+
+    if (jobStatus) {
+      conditions.push(`j.status = $${paramIndex}`);
+      queryParams.push(jobStatus);
+      paramIndex++;
+    }
+
+    if (appliedAfter) {
+      conditions.push(`a.application_date >= $${paramIndex}`);
+      queryParams.push(appliedAfter);
+      paramIndex++;
+    }
+
+    if (appliedBefore) {
+      conditions.push(`a.application_date <= $${paramIndex}`);
+      queryParams.push(appliedBefore);
+      paramIndex++;
+    }
+
+    // Apply additional WHERE conditions if any exist
+    if (conditions.length > 0) {
+      const additionalConditions = ` AND ${conditions.join(' AND ')}`;
+      baseQuery += additionalConditions;
+      countQuery += additionalConditions;
+    }
+
+    // Add sorting and pagination
+    baseQuery += ` ORDER BY a.application_date DESC, a.created_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    queryParams.push(limit, offset);
+
+    // Execute both queries
+    const [applicationsResult, countResult] = await Promise.all([
+      db.query(baseQuery, queryParams),
+      db.query(countQuery, queryParams.slice(0, -2)) // Remove limit/offset params for count
+    ]);
+
+    const totalCount = parseInt(countResult.rows[0].total);
+    const totalPages = Math.ceil(totalCount / limit);
+
+    const applications = applicationsResult.rows.map(row => {
+      // Construct the nested job object
       const jobData = {
-        id: row.job_id_from_job, // Use the alias to prevent clash
+        id: row.job_id_from_job,
         title: row.job_title,
         company: row.job_company,
         location: row.job_location,
@@ -65,37 +157,47 @@ applicationsRouter.get('/', async (req, res) => {
         created_at: new Date(row.job_created_at),
         updated_at: new Date(row.job_updated_at),
       };
-      // You could optionally validate the jobData here with JobDTO.parse(jobData)
-      // For now, we'll keep it flattened as application-centric
 
       return {
         id: row.application_id,
         user_id: row.user_id,
-        job_id: row.job_id, // This is the FK
+        job_id: row.job_id,
         status: row.application_status,
         application_date: row.application_date ? new Date(row.application_date) : null,
         notes: row.notes,
         created_at: new Date(row.application_created_at),
         updated_at: new Date(row.application_updated_at),
-        // Optionally embed job details directly, or return them separately
-        job_details: JobDTO.parse(jobData) // Validate and include job details
+        job_details: JobDTO.parse(jobData)
       };
     });
 
     // Validate applications array
-    // Note: If you choose to embed job_details, your ApplicationDTO needs to reflect that.
-    // For now, let's assume ApplicationDTO is for the application's base fields, and we embed job_details separately.
-    // If ApplicationDTO was designed to contain job_details:
-    // const validatedApplications = z.array(ApplicationDTO.extend({ job_details: JobDTO })).parse(applications);
-    // For now, let's validate each application individually with its base DTO
     const validatedApplications = applications.map(app => {
         const baseApp = ApplicationDTO.parse(app);
-        // Re-attach job_details if successfully parsed
         return { ...baseApp, job_details: app.job_details };
     });
 
-
-    res.status(200).json(validatedApplications);
+    // Return paginated response with metadata
+    res.status(200).json({
+      data: validatedApplications,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalCount,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+        limit
+      },
+      filters: {
+        search: search || null,
+        status: status || null,
+        job_company: jobCompany || null,
+        job_location: jobLocation || null,
+        job_status: jobStatus || null,
+        applied_after: appliedAfter || null,
+        applied_before: appliedBefore || null
+      }
+    });
 
   } catch (error: any) {
     console.error('Error fetching applications:', error);
