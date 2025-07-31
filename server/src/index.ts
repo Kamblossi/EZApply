@@ -1,6 +1,7 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
+import { z } from 'zod';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 
 import { authRouter } from './routes/auth';
@@ -15,6 +16,10 @@ import { documentsRouter } from './routes/documents';
 import { skillsRouter } from './routes/skills';
 import { requireAuth } from './middleware/auth';
 import { RegisterUserDTO, LoginUserDTO, AuthResponseDTO, ErrorResponseDTO } from './validators/auth';
+import { ProfileDTO } from './validators/profile';
+import { JobDTO } from './validators/job';
+import { ApplicationDTO } from './validators/application';
+import { UserDTO } from './validators/user';
 
 dotenv.config();
 
@@ -36,6 +41,13 @@ app.use('/api/profile/skills', requireAuth, skillsRouter);
 
 // ---------- 🔥 OpenAPI doc generation ----------
 const registry = new OpenAPIRegistry();
+
+// Add security scheme for JWT
+registry.registerComponent('securitySchemes', 'bearerAuth', {
+  type: 'http',
+  scheme: 'bearer',
+  bearerFormat: 'JWT',
+});
 
 // Register auth endpoints
 registry.registerPath({
@@ -110,6 +122,256 @@ registry.registerPath({
           schema: ErrorResponseDTO,
         },
       },
+    },
+  },
+});
+
+// Register user info endpoint
+registry.registerPath({
+  method: 'get',
+  path: '/api/me',
+  tags: ['User'],
+  summary: 'Get current user information',
+  description: 'Retrieve information about the currently authenticated user',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'User information retrieved successfully',
+      content: {
+        'application/json': {
+          schema: UserDTO,
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized - invalid or missing token',
+    },
+  },
+});
+
+// Register profile endpoints
+registry.registerPath({
+  method: 'get',
+  path: '/api/profile',
+  tags: ['Profile'],
+  summary: 'Get user profile',
+  description: 'Retrieve complete user profile with employment, education, and other details',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Profile retrieved successfully',
+      content: {
+        'application/json': {
+          schema: ProfileDTO,
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized - invalid or missing token',
+    },
+    404: {
+      description: 'Profile not found',
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'put',
+  path: '/api/profile',
+  tags: ['Profile'],
+  summary: 'Update user profile',
+  description: 'Update user profile information',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: ProfileDTO,
+        },
+      },
+    },
+  },
+  responses: {
+    200: {
+      description: 'Profile updated successfully',
+      content: {
+        'application/json': {
+          schema: ProfileDTO,
+        },
+      },
+    },
+    400: {
+      description: 'Invalid input data',
+    },
+    401: {
+      description: 'Unauthorized - invalid or missing token',
+    },
+  },
+});
+
+// Create response schemas
+const JobListResponseDTO = z.object({
+  data: z.array(JobDTO),
+  pagination: z.object({
+    page: z.number(),
+    limit: z.number(),
+    total: z.number(),
+    totalPages: z.number(),
+  }),
+  filters: z.object({}).optional(),
+}).openapi({
+  title: 'JobListResponseDTO',
+  description: 'Paginated list of jobs with metadata'
+});
+
+const ApplicationListResponseDTO = z.object({
+  data: z.array(ApplicationDTO),
+  pagination: z.object({
+    page: z.number(),
+    limit: z.number(),
+    total: z.number(),
+    totalPages: z.number(),
+  }),
+}).openapi({
+  title: 'ApplicationListResponseDTO',
+  description: 'Paginated list of applications with metadata'
+});
+
+// Register jobs endpoints
+registry.registerPath({
+  method: 'get',
+  path: '/api/jobs',
+  tags: ['Jobs'],
+  summary: 'Get job listings',
+  description: 'Retrieve job listings with filtering, pagination, and search capabilities',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Job listings retrieved successfully',
+      content: {
+        'application/json': {
+          schema: JobListResponseDTO,
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized - invalid or missing token',
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/jobs',
+  tags: ['Jobs'],
+  summary: 'Create a new job',
+  description: 'Add a new job posting',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: JobDTO,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: 'Job created successfully',
+      content: {
+        'application/json': {
+          schema: JobDTO,
+        },
+      },
+    },
+    400: {
+      description: 'Invalid input data',
+    },
+    401: {
+      description: 'Unauthorized - invalid or missing token',
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'get',
+  path: '/api/jobs/{id}',
+  tags: ['Jobs'],
+  summary: 'Get job by ID',
+  description: 'Retrieve a specific job by its ID',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Job retrieved successfully',
+      content: {
+        'application/json': {
+          schema: JobDTO,
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized - invalid or missing token',
+    },
+    404: {
+      description: 'Job not found',
+    },
+  },
+});
+
+// Register applications endpoints
+registry.registerPath({
+  method: 'get',
+  path: '/api/applications',
+  tags: ['Applications'],
+  summary: 'Get job applications',
+  description: 'Retrieve job applications with filtering and pagination',
+  security: [{ bearerAuth: [] }],
+  responses: {
+    200: {
+      description: 'Applications retrieved successfully',
+      content: {
+        'application/json': {
+          schema: ApplicationListResponseDTO,
+        },
+      },
+    },
+    401: {
+      description: 'Unauthorized - invalid or missing token',
+    },
+  },
+});
+
+registry.registerPath({
+  method: 'post',
+  path: '/api/applications',
+  tags: ['Applications'],
+  summary: 'Create a new application',
+  description: 'Submit a new job application',
+  security: [{ bearerAuth: [] }],
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: ApplicationDTO,
+        },
+      },
+    },
+  },
+  responses: {
+    201: {
+      description: 'Application created successfully',
+      content: {
+        'application/json': {
+          schema: ApplicationDTO,
+        },
+      },
+    },
+    400: {
+      description: 'Invalid input data',
+    },
+    401: {
+      description: 'Unauthorized - invalid or missing token',
     },
   },
 });
