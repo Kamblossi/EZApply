@@ -26,7 +26,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Get all employment records
     const result = await db.query(
       `SELECT id, employer, position, start_date, end_date, responsibilities, 
-              reason_for_leaving, salary_information, created_at, updated_at
+              reason_for_leaving, salary_information, created_at, created_at as updated_at
        FROM employment_records 
        WHERE user_profile_id = $1 
        ORDER BY start_date DESC`,
@@ -52,7 +52,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     const result = await db.query(
       `SELECT er.id, er.employer, er.position, er.start_date, er.end_date, 
               er.responsibilities, er.reason_for_leaving, er.salary_information,
-              er.created_at, er.updated_at
+              er.created_at, er.created_at as updated_at
        FROM employment_records er
        JOIN user_profiles up ON er.user_profile_id = up.id
        WHERE er.id = $1 AND up.user_id = $2`,
@@ -98,7 +98,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       `INSERT INTO employment_records 
        (user_profile_id, employer, position, start_date, end_date, responsibilities, reason_for_leaving, salary_information)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, employer, position, start_date, end_date, responsibilities, reason_for_leaving, salary_information, created_at, updated_at`,
+       RETURNING id, employer, position, start_date, end_date, responsibilities, reason_for_leaving, salary_information, created_at, created_at as updated_at`,
       [
         userProfileId,
         employmentData.employer,
@@ -134,12 +134,12 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     const result = await db.query(
       `UPDATE employment_records 
        SET employer = $1, position = $2, start_date = $3, end_date = $4, 
-           responsibilities = $5, reason_for_leaving = $6, salary_information = $7, updated_at = NOW()
+           responsibilities = $5, reason_for_leaving = $6, salary_information = $7
        FROM user_profiles up
        WHERE employment_records.id = $8 AND employment_records.user_profile_id = up.id AND up.user_id = $9
        RETURNING employment_records.id, employer, position, start_date, end_date, 
                  responsibilities, reason_for_leaving, salary_information, 
-                 employment_records.created_at, employment_records.updated_at`,
+                 employment_records.created_at, employment_records.created_at as updated_at`,
       [
         employmentData.employer,
         employmentData.position,

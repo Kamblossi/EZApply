@@ -1,24 +1,15 @@
 // test/granular-endpoints.spec.ts
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import request from 'supertest';
-import { Pool } from 'pg';
+import jwt from 'jsonwebtoken';
 import { app } from '../src/index';
+import { db } from '../src/db'; // Use the shared database connection
 
-let db: Pool;
 let authToken: string;
 let userId: string;
 let userProfileId: string;
 
 beforeAll(async () => {
-  // Set up the database connection
-  db = new Pool({
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
-    database: process.env.DB_NAME || 'ezapply_test',
-  });
-
   // Clean up existing test data
   await db.query('DELETE FROM users WHERE email = $1', ['granular.test@example.com']);
 
@@ -27,11 +18,33 @@ beforeAll(async () => {
     .post('/api/auth/register')
     .send({
       email: 'granular.test@example.com',
-      password: 'Test123!'
+      password: 'Test123!',
+      forename: 'Granular',
+      surname: 'User',
     });
 
+  // Debug registration response
+  if (registerResponse.status !== 200) {
+    console.error('Registration failed:', registerResponse.status, registerResponse.body);
+    throw new Error(`Registration failed with status ${registerResponse.status}`);
+  }
+
   authToken = registerResponse.body.token;
-  userId = registerResponse.body.user.id;
+  
+  // Debug token
+  if (!authToken) {
+    console.error('No token in response:', registerResponse.body);
+    throw new Error('No token received from registration');
+  }
+  
+  // Decode JWT to get user ID
+  const decoded = jwt.decode(authToken) as { id: string } | null;
+  if (!decoded || !decoded.id) {
+    console.error('Failed to decode token:', authToken);
+    console.error('Decoded result:', decoded);
+    throw new Error('Failed to decode JWT token');
+  }
+  userId = decoded.id;
 
   // Create a profile for testing granular endpoints
   const profileResponse = await request(app)
@@ -50,7 +63,7 @@ beforeAll(async () => {
 afterAll(async () => {
   // Clean up test data
   await db.query('DELETE FROM users WHERE email = $1', ['granular.test@example.com']);
-  await db.end();
+  // Don't call db.end() since db is shared - it will be managed by the test framework
 });
 
 describe('Granular Employment Endpoints', () => {
@@ -283,11 +296,19 @@ describe('User Isolation Tests', () => {
       .post('/api/auth/register')
       .send({
         email: 'other.user@example.com',
-        password: 'Test123!'
+        password: 'Test123!',
+        forename: 'Other',
+        surname: 'User'
       });
 
     otherAuthToken = otherUserResponse.body.token;
-    otherUserId = otherUserResponse.body.user.id;
+    
+    // Decode JWT to get user ID
+    const decodedOther = jwt.decode(otherAuthToken) as { id: string } | null;
+    if (!decodedOther || !decodedOther.id) {
+      throw new Error('Failed to decode other user JWT token');
+    }
+    otherUserId = decodedOther.id;
 
     // Create a profile for the other user
     await request(app)

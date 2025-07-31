@@ -26,7 +26,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Get all reference contacts
     const result = await db.query(
       `SELECT id, name, relationship, company, phone, email, 
-              position, created_at, updated_at
+              position, created_at, created_at as updated_at
        FROM reference_contacts 
        WHERE user_profile_id = $1 
        ORDER BY name ASC`,
@@ -51,7 +51,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     // Verify the contact belongs to the user
     const result = await db.query(
       `SELECT rc.id, rc.name, rc.relationship, rc.company, rc.phone, 
-              rc.email, rc.position, rc.created_at, rc.updated_at
+              rc.email, rc.position, rc.created_at, rc.created_at as updated_at
        FROM reference_contacts rc
        JOIN user_profiles up ON rc.user_profile_id = up.id
        WHERE rc.id = $1 AND up.user_id = $2`,
@@ -97,7 +97,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       `INSERT INTO reference_contacts 
        (user_profile_id, name, relationship, company, phone, email, position)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, name, relationship, company, phone, email, position, created_at, updated_at`,
+       RETURNING id, name, relationship, company, phone, email, position, created_at, created_at as updated_at`,
       [
         userProfileId,
         contactData.name,
@@ -132,11 +132,11 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     const result = await db.query(
       `UPDATE reference_contacts 
        SET name = $1, relationship = $2, company = $3, phone = $4, 
-           email = $5, position = $6, updated_at = NOW()
+           email = $5, position = $6
        FROM user_profiles up
        WHERE reference_contacts.id = $7 AND reference_contacts.user_profile_id = up.id AND up.user_id = $8
        RETURNING reference_contacts.id, name, relationship, company, phone, email, position,
-                 reference_contacts.created_at, reference_contacts.updated_at`,
+                 reference_contacts.created_at, reference_contacts.created_at as updated_at`,
       [
         contactData.name,
         contactData.relationship,

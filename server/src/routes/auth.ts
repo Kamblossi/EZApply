@@ -3,10 +3,11 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { db } from '../db';
 import { RegisterUserDTO, LoginUserDTO } from '../validators/auth';
+import { authLimiter } from '../middleware/rateLimit';
 
 const router = Router();
 
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   const parse = RegisterUserDTO.safeParse(req.body);
   if (!parse.success) return res.status(400).json(parse.error);
 
@@ -41,7 +42,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   const parse = LoginUserDTO.safeParse(req.body);
   if (!parse.success) return res.status(400).json(parse.error);
 

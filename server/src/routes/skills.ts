@@ -26,7 +26,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Get all user skills
     const result = await db.query(
       `SELECT id, skill_name, proficiency_level, category, 
-              created_at, updated_at
+              NOW() as created_at, NOW() as updated_at
        FROM user_skills 
        WHERE user_profile_id = $1 
        ORDER BY skill_name ASC`,
@@ -51,7 +51,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     // Verify the skill belongs to the user
     const result = await db.query(
       `SELECT us.id, us.skill_name, us.proficiency_level, us.category,
-              us.created_at, us.updated_at
+              NOW() as created_at, NOW() as updated_at
        FROM user_skills us
        JOIN user_profiles up ON us.user_profile_id = up.id
        WHERE us.id = $1 AND up.user_id = $2`,
@@ -97,7 +97,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       `INSERT INTO user_skills 
        (user_profile_id, skill_name, proficiency_level, category)
        VALUES ($1, $2, $3, $4)
-       RETURNING id, skill_name, proficiency_level, category, created_at, updated_at`,
+       RETURNING id, skill_name, proficiency_level, category, NOW() as created_at, NOW() as updated_at`,
       [
         userProfileId,
         skillData.skill_name,
@@ -128,11 +128,11 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     // Verify the skill belongs to the user and update it
     const result = await db.query(
       `UPDATE user_skills 
-       SET skill_name = $1, proficiency_level = $2, category = $3, updated_at = NOW()
+       SET skill_name = $1, proficiency_level = $2, category = $3
        FROM user_profiles up
        WHERE user_skills.id = $4 AND user_skills.user_profile_id = up.id AND up.user_id = $5
        RETURNING user_skills.id, skill_name, proficiency_level, category,
-                 user_skills.created_at, user_skills.updated_at`,
+                 NOW() as created_at, NOW() as updated_at`,
       [
         skillData.skill_name,
         skillData.proficiency_level,

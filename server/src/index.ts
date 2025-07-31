@@ -55,7 +55,7 @@ registry.registerPath({
   path: '/api/auth/register',
   tags: ['Authentication'],
   summary: 'Register a new user',
-  description: 'Create a new user account with email, password, and personal details',
+  description: 'Create a new user account with email, password, and personal details. Rate limited to 5 requests per 15 minutes per IP address.',
   request: {
     body: {
       content: {
@@ -73,12 +73,34 @@ registry.registerPath({
           schema: AuthResponseDTO,
         },
       },
+      headers: {
+        'RateLimit-Limit': {
+          description: 'Request limit per window',
+          schema: { type: 'integer', example: 5 },
+        },
+        'RateLimit-Remaining': {
+          description: 'The number of requests left for the time window',
+          schema: { type: 'integer', example: 4 },
+        },
+        'RateLimit-Reset': {
+          description: 'The relative time in seconds when the rate limit resets',
+          schema: { type: 'integer', example: 900 },
+        },
+      },
     },
     400: {
       description: 'Invalid input data',
     },
     409: {
       description: 'Email already exists',
+      content: {
+        'application/json': {
+          schema: ErrorResponseDTO,
+        },
+      },
+    },
+    429: {
+      description: 'Too Many Requests - Rate limit exceeded',
       content: {
         'application/json': {
           schema: ErrorResponseDTO,
@@ -93,7 +115,7 @@ registry.registerPath({
   path: '/api/auth/login',
   tags: ['Authentication'],
   summary: 'Login user',
-  description: 'Authenticate user with email and password',
+  description: 'Authenticate user with email and password. Rate limited to 5 requests per 15 minutes per IP address.',
   request: {
     body: {
       content: {
@@ -111,12 +133,34 @@ registry.registerPath({
           schema: AuthResponseDTO,
         },
       },
+      headers: {
+        'RateLimit-Limit': {
+          description: 'Request limit per window',
+          schema: { type: 'integer', example: 5 },
+        },
+        'RateLimit-Remaining': {
+          description: 'The number of requests left for the time window',
+          schema: { type: 'integer', example: 4 },
+        },
+        'RateLimit-Reset': {
+          description: 'The relative time in seconds when the rate limit resets',
+          schema: { type: 'integer', example: 900 },
+        },
+      },
     },
     400: {
       description: 'Invalid input data',
     },
     401: {
       description: 'Invalid credentials',
+      content: {
+        'application/json': {
+          schema: ErrorResponseDTO,
+        },
+      },
+    },
+    429: {
+      description: 'Too Many Requests - Rate limit exceeded',
       content: {
         'application/json': {
           schema: ErrorResponseDTO,

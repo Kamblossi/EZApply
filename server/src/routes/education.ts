@@ -26,7 +26,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Get all education records
     const result = await db.query(
       `SELECT id, institution, qualification_type, degree_diploma, field_of_study, 
-              start_date, end_date, grade_score, created_at, updated_at
+              start_date, end_date, grade_score, created_at, created_at as updated_at
        FROM education_records 
        WHERE user_profile_id = $1 
        ORDER BY start_date DESC`,
@@ -52,7 +52,7 @@ router.get('/:id', requireAuth, async (req: Request, res: Response) => {
     const result = await db.query(
       `SELECT er.id, er.institution, er.qualification_type, er.degree_diploma, 
               er.field_of_study, er.start_date, er.end_date, er.grade_score,
-              er.created_at, er.updated_at
+              er.created_at, er.created_at as updated_at
        FROM education_records er
        JOIN user_profiles up ON er.user_profile_id = up.id
        WHERE er.id = $1 AND up.user_id = $2`,
@@ -98,7 +98,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
       `INSERT INTO education_records 
        (user_profile_id, institution, qualification_type, degree_diploma, field_of_study, start_date, end_date, grade_score)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id, institution, qualification_type, degree_diploma, field_of_study, start_date, end_date, grade_score, created_at, updated_at`,
+       RETURNING id, institution, qualification_type, degree_diploma, field_of_study, start_date, end_date, grade_score, created_at, created_at as updated_at`,
       [
         userProfileId,
         educationData.institution,
@@ -134,11 +134,11 @@ router.put('/:id', requireAuth, async (req: Request, res: Response) => {
     const result = await db.query(
       `UPDATE education_records 
        SET institution = $1, qualification_type = $2, degree_diploma = $3, 
-           field_of_study = $4, start_date = $5, end_date = $6, grade_score = $7, updated_at = NOW()
+           field_of_study = $4, start_date = $5, end_date = $6, grade_score = $7
        FROM user_profiles up
        WHERE education_records.id = $8 AND education_records.user_profile_id = up.id AND up.user_id = $9
        RETURNING education_records.id, institution, qualification_type, degree_diploma, field_of_study,
-                 start_date, end_date, grade_score, education_records.created_at, education_records.updated_at`,
+                 start_date, end_date, grade_score, education_records.created_at, education_records.created_at as updated_at`,
       [
         educationData.institution,
         educationData.qualification_type,

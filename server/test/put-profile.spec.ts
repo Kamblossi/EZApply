@@ -20,9 +20,16 @@ describe('PUT /api/profile', () => {
       });
     
     putTestAuthToken = registerRes.body.token;
+    
+    // Ensure registration was successful
+    expect(registerRes.status).toBe(200);
+    expect(putTestAuthToken).toBeDefined();
+    
     // Decode the JWT token to get the user ID
-    const decoded = jwt.decode(putTestAuthToken) as { id: string };
-    putTestUserId = decoded.id;
+    const decoded = jwt.decode(putTestAuthToken) as { id: string } | null;
+    expect(decoded).not.toBeNull();
+    expect(decoded?.id).toBeDefined();
+    putTestUserId = decoded!.id;
   });
 
   afterEach(async () => {
@@ -509,9 +516,16 @@ describe('DELETE /api/profile', () => {
             });
 
         putTestAuthToken = registerRes.body.token;
-        const decoded = jwt.decode(putTestAuthToken) as { id: string, forename: string, surname: string };
-        putTestUserId = decoded.id;
-        putTestUser = { forename: decoded.forename, surname: decoded.surname }; // Store base user details
+        
+        // Ensure registration was successful
+        expect(registerRes.status).toBe(200);
+        expect(putTestAuthToken).toBeDefined();
+        
+        const decoded = jwt.decode(putTestAuthToken) as { id: string, forename: string, surname: string } | null;
+        expect(decoded).not.toBeNull();
+        expect(decoded?.id).toBeDefined();
+        putTestUserId = decoded!.id;
+        putTestUser = { forename: decoded!.forename, surname: decoded!.surname }; // Store base user details
     });
 
     afterEach(async () => {
