@@ -1,24 +1,13 @@
 import { Router } from 'express';
-import { z } from 'zod';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { db } from '../db';
+import { RegisterUserDTO, LoginUserDTO } from '../validators/auth';
 
 const router = Router();
-const RegisterCreds = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  forename: z.string().min(1),
-  surname: z.string().min(1),
-});
-
-const LoginCreds = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-});
 
 router.post('/register', async (req, res) => {
-  const parse = RegisterCreds.safeParse(req.body);
+  const parse = RegisterUserDTO.safeParse(req.body);
   if (!parse.success) return res.status(400).json(parse.error);
 
   const { email, password, forename, surname } = parse.data;
@@ -53,7 +42,7 @@ router.post('/register', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
-  const parse = LoginCreds.safeParse(req.body);
+  const parse = LoginUserDTO.safeParse(req.body);
   if (!parse.success) return res.status(400).json(parse.error);
 
   const { email, password } = parse.data;

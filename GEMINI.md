@@ -1,10 +1,15 @@
-### EZApply — **Guard-Rails (v 1.1)**
+---
+applyTo: '**'
+---
+Provide project context and coding guidelines that AI should follow when generating code, answering questions, or reviewing changes.
+
+### EZApply — **Blackbox-agent Guard-Rails (v 1.1)**
 
 EZApply is a local-first desktop application that automates job applications on NHS Trac (and other ATS portals).
 
 Desktop Client (Windows App): Electron-based frontend (HTML, CSS, JavaScript) for the user interface.
 
-Backend Server (API + AI Proxy): A web service likely implemented with Node.js (Express or Koa) to handle all core functionalities, including user authentication, job management, and secure proxying of AI interactions.
+Backend Server (API + AI Proxy): A web service likely implemented with Node.js (Express) to handle all core functionalities, including user authentication, job management, and secure proxying of AI interactions.
 
 PostgreSQL Database: For persistent storage of user accounts, job records, and other application data.
 
@@ -50,11 +55,15 @@ and then waiting for an explicit `yes` from me.
 
 ---
 
-## 4 · Rust / Tauri backend
+## 3 · Node.js / Express Backend
 
-1. New commands go in `src-tauri/src/commands/` and are registered with `tauri::generate_handler!`.
-2. Do not alter icon paths in `tauri.conf.json` unless I request it.
-3. Dev-only code wrapped in `#[cfg(debug_assertions)]`.
+1.  **Framework & Language:** Backend services must be built with Node.js and Express.js, using TypeScript for all new and modified code.
+2.  **API Structure:** Organize API routes within `server/src/routes/`, validation schemas in `server/src/validators/`, and middleware in `server/src/middleware/`. Database connection utilities belong in `server/src/db.ts`.
+3.  **Validation:** All incoming API request bodies and query parameters must be validated using **Zod schemas**. Ensure clear, descriptive error messages for validation failures.
+4.  **Authentication:** JWT (JSON Web Tokens) must be used for all authentication, with token generation and verification handled by dedicated middleware (`auth.ts`). Passwords must be hashed using `bcrypt` with a minimum of 12 salt rounds.
+5.  **Error Handling:** Implement consistent error handling across all API endpoints. Use appropriate HTTP status codes (e.g., 400 for validation errors, 401 for authentication, 404 for not found, 500 for internal server errors) and standardized JSON error responses.
+6.  **Database Interactions:** All database queries must be parameterized to prevent SQL injection. For complex operations involving multiple tables (e.g., nested profile updates, cascading deletes), utilize PostgreSQL transactions to ensure data integrity.
+7.  **GET Endpoint Enhancements:** Implement filtering, pagination, and searching capabilities for all list (`GET /api/*`) endpoints. Use clear query parameters (e.g., `?page=X&limit=Y`, `?search=keyword`, `?status=Z`) and return structured responses including `data`, `pagination` metadata, and `filters` applied.
 
 ---
 
@@ -100,39 +109,48 @@ and then waiting for an explicit `yes` from me.
 
 ---
 
-## 10 · **Commit-message template (new rule)**
-
-All commits must follow **Conventional Commits** in imperative English:
-
-```
-<type>(<scope>): <short summary>
-
-Body (72-char wrap):
-- Explain what and **why**, not how.
-- Reference issue if relevant, e.g. Closes #24.
-
-Footer (optional):
-BREAKING CHANGE: something major
-```
-
-Allowed **type** values: `feat | fix | docs | style | refactor | test | build | chore`.
-*Scope* is optional; use folder or component name (`react`, `tauri`, `db`).
-Example:
-
-```
-feat(react): add resume drag-and-drop panel
-```
-
-If unsure of the correct type, default to `chore:`.
-
----
-
-**If any rule conflicts with a new task, the agent must stop and ask for clarification before proceeding.**
-
----
-
 ## 10 · **PowerShell git syntax** 
 
 – when executing git or shell commands on Windows,
    **never** chain them with `&&` or `||`.  
    Instead run them **as separate statements**:
+
+```powershell
+# ❌ Wrong - doesn't work in PowerShell
+git add . && git commit -m "message"
+
+# ✅ Correct - separate statements
+git add .
+git commit -m "message"
+```
+
+---
+
+## 11 · **How to start the server and client** 
+
+The backend server and frontend client are run using separate commands in their respective directories:
+
+**Backend (Server):**
+1. Navigate to the server directory: `cd server`
+2. Run the command: `pnpm run dev`
+3. This starts the server using ts-node-dev which watches for TypeScript changes and restarts automatically
+4. The server listens on port 4000 and handles API requests and business logic
+
+**Frontend (Client):**
+1. Navigate to the app directory: `cd app`
+2. Run the command: `pnpm start`
+3. This launches the Electron desktop app using electron-forge start
+4. The frontend UI interacts with the backend server
+
+**To run both simultaneously:**
+1. Open two terminal windows or tabs
+2. In one terminal: `cd server` then `pnpm run dev`
+3. In another terminal: `cd app` then `pnpm start`
+
+**NEVER attempt to chain these commands with PowerShell operators. Always run them as separate statements in separate terminals.**
+
+This setup allows local development and testing without reinstalling dependencies.
+
+---
+
+**If any rule conflicts with a new task, the agent must stop and ask for clarification before proceeding.**
