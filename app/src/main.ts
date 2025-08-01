@@ -5,9 +5,17 @@ import * as url from 'url';
 const isDev = !app.isPackaged;
 
 function createWindow() {
+  const iconPath = isDev 
+    ? path.join(__dirname, '../../assets/favicon.ico')  // 🎨 DEV: from app/src/ to app/assets/
+    : path.join(__dirname, '../assets/favicon.ico');     // 🎨 PROD: from built location
+  
+  console.log('🎨 Using icon path:', iconPath);
+  console.log('🎨 Icon exists:', require('fs').existsSync(iconPath));
+  
   const win = new BrowserWindow({
     width: 1280,
     height: 800,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -15,6 +23,9 @@ function createWindow() {
     },
   });
 
+  // 🎨 Force set icon after window creation for Windows taskbar
+  win.setIcon(iconPath);
+  
   if (isDev) {
     // 🧪 DEV: load from Vite dev server
     win.loadURL('http://localhost:5173');
