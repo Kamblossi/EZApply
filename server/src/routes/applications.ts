@@ -1,7 +1,7 @@
 // server/src/routes/applications.ts
 import { Router } from 'express';
 import { db } from '../db';
-import { ApplicationDTO } from '../validators/application'; // Import ApplicationDTO
+import { ApplicationDTO, ApplicationTimelineUpdateSchema } from '../validators/application'; // Import timeline schema
 import { JobDTO } from '../validators/job'; // Import JobDTO to potentially embed job data
 import { z } from 'zod'; // Import z for array validation
 
@@ -317,17 +317,65 @@ applicationsRouter.put('/:id', async (req, res) => {
       return res.status(400).json({ message: 'Mismatched ID in URL and request body.' });
     }
 
-    // Validate incoming data for updates (make fields optional since this is a partial update)
-    const updatedApplicationData = ApplicationDTO.omit({ user_id: true }).partial().parse(req.body);
-
     client = await db.connect();
 
-    // Check if the application exists AND belongs to the authenticated user
-    const checkResult = await client.query('SELECT id, job_id FROM applications WHERE id = $1 AND user_id = $2;', [applicationId, userId]);
-    if (checkResult.rowCount === 0) {
+    // Check if this is a timeline-focused update
+    const isTimelineUpdate = req.body.event_type || 
+                           (req.body.status && Object.keys(req.body).length <= 3);
+
+    // First get existing application data for comparison
+    const existingResult = await client.query(
+      'SELECT * FROM applications WHERE id = $1 AND user_id = $2;', 
+      [applicationId, userId]
+    );
+    
+    if (existingResult.rowCount === 0) {
       return res.status(404).json({ message: 'Application not found or does not belong to user.' });
     }
-    const existingJobId = checkResult.rows[0].job_id;
+    
+    const existingApplication = existingResult.rows[0];
+
+    let updatedApplicationData: any;
+    let timelineEvent = null;
+
+    if (isTimelineUpdate) {
+      // Use timeline-focused validation for timeline updates
+      const timelineData = ApplicationTimelineUpdateSchema.parse(req.body);
+      
+      // Create timeline event record
+      if (timelineData.status && timelineData.status !== existingApplication.status) {
+        timelineEvent = {
+          event_type: timelineData.event_type || 'status_change',
+          previous_value: existingApplication.status,
+          new_value: timelineData.status,
+          notes: timelineData.notes,
+          timestamp: new Date(),
+          field_changed: 'status'
+        };
+      } else if (timelineData.notes) {
+        timelineEvent = {
+          event_type: timelineData.event_type || 'note_added',
+          previous_value: existingApplication.notes,
+          new_value: timelineData.notes,
+          notes: timelineData.notes,
+          timestamp: new Date(),
+          field_changed: 'notes'
+        };
+      }
+
+      // Convert to application update format
+      updatedApplicationData = {
+        job_id: timelineData.job_id, // Include job_id from timeline data
+        status: timelineData.status || existingApplication.status,
+        application_date: timelineData.application_date || existingApplication.application_date,
+        notes: timelineData.notes || existingApplication.notes
+      };
+    } else {
+      // Use standard validation for regular updates
+      updatedApplicationData = ApplicationDTO.omit({ user_id: true }).partial().parse(req.body);
+    }
+
+    const existingJobId = existingApplication.job_id;
 
     // If job_id is being updated, verify the new job_id exists
     if (updatedApplicationData.job_id && updatedApplicationData.job_id !== existingJobId) {
@@ -384,7 +432,19 @@ applicationsRouter.put('/:id', async (req, res) => {
         job_details: validatedJobDetails
     };
 
-    res.status(200).json(validatedApplicationResponse);
+    // Enhanced response with timeline context
+    const response: any = {
+      application: validatedApplicationResponse,
+      message: 'Application updated successfully'
+    };
+
+    // Add timeline event information if this was a timeline update
+    if (timelineEvent) {
+      response.timeline_event = timelineEvent;
+      response.message = `Application ${timelineEvent.event_type.replace('_', ' ')} recorded successfully`;
+    }
+
+    res.status(200).json(response);
 
   } catch (error: any) {
     console.error(`Error updating application ${applicationId}:`, error);
@@ -392,6 +452,106 @@ applicationsRouter.put('/:id', async (req, res) => {
       return res.status(400).json({ message: 'Validation error', errors: error.issues });
     }
     res.status(500).json({ message: 'Failed to update application', error: error.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+
+// =====================================================================
+// GET /api/applications/:id/timeline - Get application timeline history
+// =====================================================================
+applicationsRouter.get('/:id/timeline', async (req, res) => {
+  const applicationId = req.params.id;
+  const userId = (req as any).user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ message: 'Unauthorized: User ID not found.' });
+  }
+
+  // Validate UUID format
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(applicationId)) {
+    return res.status(400).json({ message: 'Invalid application ID format. Must be a valid UUID.' });
+  }
+
+  let client;
+  try {
+    client = await db.connect();
+
+    // Get application details and verify ownership
+    const applicationResult = await client.query(
+      'SELECT * FROM applications WHERE id = $1 AND user_id = $2;',
+      [applicationId, userId]
+    );
+
+    if (applicationResult.rowCount === 0) {
+      return res.status(404).json({ message: 'Application not found or does not belong to user.' });
+    }
+
+    const application = applicationResult.rows[0];
+
+    // Generate timeline events from application history
+    const timeline = [];
+
+    // Application created event
+    timeline.push({
+      event_type: 'application_created',
+      timestamp: new Date(application.created_at),
+      notes: 'Application tracking started',
+      status: 'draft',
+      field_changed: null
+    });
+
+    // Application submitted event (if different from created)
+    if (application.application_date && 
+        new Date(application.application_date).getTime() !== new Date(application.created_at).getTime()) {
+      timeline.push({
+        event_type: 'application_submitted',
+        timestamp: new Date(application.application_date),
+        notes: 'Application officially submitted',
+        status: 'submitted',
+        field_changed: 'application_date'
+      });
+    }
+
+    // Status updated event (if updated)
+    if (new Date(application.updated_at).getTime() !== new Date(application.created_at).getTime()) {
+      timeline.push({
+        event_type: 'status_updated',
+        timestamp: new Date(application.updated_at),
+        notes: application.notes || `Status updated to ${application.status}`,
+        status: application.status,
+        field_changed: 'status'
+      });
+    }
+
+    // Sort timeline chronologically
+    const sortedTimeline = timeline.sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+
+    // Timeline summary
+    const timelineSummary = {
+      total_events: sortedTimeline.length,
+      current_status: application.status,
+      first_event: sortedTimeline[0],
+      latest_event: sortedTimeline[sortedTimeline.length - 1],
+      duration_days: Math.ceil(
+        (new Date(application.updated_at).getTime() - new Date(application.created_at).getTime()) 
+        / (1000 * 60 * 60 * 24)
+      )
+    };
+
+    res.status(200).json({
+      application_id: applicationId,
+      timeline: sortedTimeline,
+      timeline_summary: timelineSummary
+    });
+
+  } catch (error: any) {
+    console.error(`Error fetching application timeline ${applicationId}:`, error);
+    res.status(500).json({ message: 'Failed to fetch application timeline', error: error.message });
   } finally {
     if (client) client.release();
   }

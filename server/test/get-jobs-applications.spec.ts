@@ -292,9 +292,7 @@ describe('Jobs and Applications Endpoints', () => {
       location: 'Remote',
       description: 'Exciting opportunity!',
       url: 'http://newtech.com/careers/fsd',
-      status: 'open',
-      posted_date: new Date('2025-01-01T10:00:00.000Z'),
-      deadline_date: new Date('2025-01-31T17:00:00.000Z'),
+      status: 'draft'
     };
 
     const res = await request(app)
@@ -303,24 +301,32 @@ describe('Jobs and Applications Endpoints', () => {
       .send(newJob);
 
     expect(res.statusCode).toBe(201);
-    expect(res.body).toHaveProperty('id');
-    expect(typeof res.body.id).toBe('string');
-    expect(res.body.title).toBe(newJob.title);
-    expect(res.body.company).toBe(newJob.company);
-    expect(res.body.location).toBe(newJob.location);
-    expect(res.body.status).toBe(newJob.status);
-    expect(new Date(res.body.posted_date)).toEqual(newJob.posted_date);
-    expect(new Date(res.body.deadline_date)).toEqual(newJob.deadline_date);
+    expect(res.body).toHaveProperty('job');
+    expect(res.body).toHaveProperty('application');
+    
+    // Verify job data
+    expect(res.body.job).toHaveProperty('id');
+    expect(typeof res.body.job.id).toBe('string');
+    expect(res.body.job.title).toBe(newJob.title);
+    expect(res.body.job.company).toBe(newJob.company);
+    expect(res.body.job.location).toBe(newJob.location);
+    expect(res.body.job.status).toBe('open'); // Job status should be 'open' by default
+    
+    // Verify application data
+    expect(res.body.application).toHaveProperty('id');
+    expect(res.body.application.user_id).toBe(testUserId);
+    expect(res.body.application.job_id).toBe(res.body.job.id);
+    expect(res.body.application.status).toBe(newJob.status); // Application status
 
     // Verify it exists in the database
-    const dbRes = await db.query('SELECT * FROM jobs WHERE id = $1', [res.body.id]);
+    const dbRes = await db.query('SELECT * FROM jobs WHERE id = $1', [res.body.job.id]);
     expect(dbRes.rows).toHaveLength(1);
     expect(dbRes.rows[0].title).toBe(newJob.title);
 
     // Verify it's returned by GET /api/jobs
     const getRes = await request(app).get('/api/jobs').set('Authorization', `Bearer ${authToken}`);
     expect(getRes.statusCode).toBe(200);
-    expect(getRes.body.data.some((job: any) => job.id === res.body.id)).toBe(true);
+    expect(getRes.body.data.some((job: any) => job.id === res.body.job.id)).toBe(true);
   });
 
   it('POST /api/jobs should return 400 for invalid job data', async () => {
@@ -391,19 +397,22 @@ describe('Jobs and Applications Endpoints', () => {
   });
 
   it('POST /api/applications should create a new application successfully', async () => {
-    // First, create a job to apply to
+    // First, create a job to apply to (using direct DB insert to avoid auto-creating application)
     const jobForApplication = {
+      id: randomUUID(),
       title: 'UX Designer',
       company: 'Design Studio',
       status: 'open',
       posted_date: new Date('2025-02-01T09:00:00.000Z'),
     };
-    const jobRes = await request(app)
-      .post('/api/jobs')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send(jobForApplication);
-    expect(jobRes.statusCode).toBe(201);
-    const jobId = jobRes.body.id;
+    
+    await db.query(
+      `INSERT INTO jobs (id, title, company, status, posted_date)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [jobForApplication.id, jobForApplication.title, jobForApplication.company, jobForApplication.status, jobForApplication.posted_date.toISOString()]
+    );
+    
+    const jobId = jobForApplication.id;
 
     const newApplication = {
       job_id: jobId,
@@ -746,7 +755,8 @@ describe('Jobs and Applications Endpoints', () => {
       job_id: newJobForApp.id, // Changing job_id
       status: 'interview',
       notes: 'Scheduled for final interview.',
-      application_date: new Date('2024-05-15T10:00:00.000Z')
+      application_date: new Date('2024-05-15T10:00:00.000Z'),
+      event_type: 'status_change'
     };
 
     const res = await request(app)
@@ -755,17 +765,19 @@ describe('Jobs and Applications Endpoints', () => {
       .send(updatedData);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body.id).toBe(appToUpdate.id);
-    expect(res.body.user_id).toBe(testUserId);
-    expect(res.body.job_id).toBe(newJobForApp.id); // Check updated job_id
-    expect(res.body.status).toBe(updatedData.status);
-    expect(res.body.notes).toBe(updatedData.notes);
-    expect(new Date(res.body.application_date)).toEqual(updatedData.application_date);
+    expect(res.body).toHaveProperty('application');
+    expect(res.body).toHaveProperty('timeline_event');
+    
+    // Check application data
+    expect(res.body.application.id).toBe(appToUpdate.id);
+    expect(res.body.application.user_id).toBe(testUserId);
+    expect(res.body.application.job_id).toBe(newJobForApp.id); // Check updated job_id
+    expect(res.body.application.status).toBe(updatedData.status);
+    expect(res.body.application.notes).toBe(updatedData.notes);
+    expect(new Date(res.body.application.application_date)).toEqual(updatedData.application_date);
 
-    // Verify embedded job_details reflect the NEW job
-    expect(res.body.job_details).toBeDefined();
-    expect(res.body.job_details.id).toBe(newJobForApp.id);
-    expect(res.body.job_details.title).toBe(newJobForApp.title);
+    // Check timeline event
+    expect(res.body.timeline_event.event_type).toBe('status_change');
 
     // Verify changes in database
     const dbRes = await db.query('SELECT * FROM applications WHERE id = $1', [appToUpdate.id]);
@@ -795,7 +807,11 @@ describe('Jobs and Applications Endpoints', () => {
                    [appToUpdate.id, appToUpdate.user_id, appToUpdate.job_id, appToUpdate.status]);
 
     const nonExistentJobId = randomUUID(); // Valid UUID, but not in DB
-    const updateData = { status: 'submitted', job_id: nonExistentJobId };
+    const updateData = { 
+      status: 'submitted', 
+      job_id: nonExistentJobId,
+      event_type: 'status_change'
+    };
 
     const res = await request(app)
       .put(`/api/applications/${appToUpdate.id}`)

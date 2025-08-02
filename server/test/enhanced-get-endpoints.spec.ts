@@ -38,40 +38,40 @@ describe('Enhanced GET Endpoints - Filtering, Pagination, Search', () => {
         company: 'TechCorp Inc',
         description: 'React specialist position with modern stack',
         location: 'New York, NY',
-        salary: '120000',
-        status: 'open'
+        url: `https://example.com/job1-${Date.now()}`,
+        status: 'draft'
       },
       {
         title: 'Backend Engineer',
         company: 'StartupCo',
         description: 'Node.js and PostgreSQL backend development',
-        location: 'San Francisco, CA', 
-        salary: '110000',
-        status: 'open'
+        location: 'San Francisco, CA',
+        url: `https://example.com/job2-${Date.now()}`,
+        status: 'draft'
       },
       {
         title: 'Full Stack Developer',
         company: 'TechCorp Inc',
         description: 'Full stack web development with React and Node',
         location: 'Remote',
-        salary: '100000',
-        status: 'closed'
+        url: `https://example.com/job3-${Date.now()}`,
+        status: 'draft'
       },
       {
         title: 'DevOps Engineer',
         company: 'CloudSystems',
         description: 'AWS infrastructure and deployment automation',
         location: 'Seattle, WA',
-        salary: '130000',
-        status: 'open'
+        url: `https://example.com/job4-${Date.now()}`,
+        status: 'draft'
       },
       {
         title: 'Mobile Developer',
         company: 'AppVentures',
         description: 'iOS and Android native app development',
         location: 'Austin, TX',
-        salary: '105000',
-        status: 'closed'
+        url: `https://example.com/job5-${Date.now()}`,
+        status: 'draft'
       }
     ];
 
@@ -82,39 +82,58 @@ describe('Enhanced GET Endpoints - Filtering, Pagination, Search', () => {
         .set('Authorization', `Bearer ${token}`)
         .send(jobData);
       
-      jobIds.push(res.body.id);
+      expect(res.statusCode).toBe(201);
+      expect(res.body).toHaveProperty('job');
+      expect(res.body).toHaveProperty('application');
+      
+      jobIds.push(res.body.job.id);
+      applicationIds.push(res.body.application.id);
     }
 
     // Wait a bit to ensure different timestamps
     await new Promise(resolve => setTimeout(resolve, 100));
 
-    // Create test applications
-    const applicationsData = [
-      {
-        job_id: jobIds[0],
-        status: 'applied',
-        notes: 'Applied through company website'
-      },
-      {
-        job_id: jobIds[1],
-        status: 'interview',
-        notes: 'Phone screening scheduled for next week'
-      },
-      {
-        job_id: jobIds[2],
-        status: 'rejected',
-        notes: 'Position was filled internally'
-      }
-    ];
-
-    // Create applications and collect IDs
-    for (const appData of applicationsData) {
-      const res = await request(app)
-        .post('/api/applications')
+    // Update some application statuses for variety
+    if (applicationIds.length >= 3) {
+      await request(app)
+        .put(`/api/applications/${applicationIds[0]}`)
         .set('Authorization', `Bearer ${token}`)
-        .send(appData);
-      
-      applicationIds.push(res.body.id);
+        .send({
+          status: 'submitted',
+          notes: 'Applied through company website',
+          event_type: 'status_change'
+        });
+        
+      await request(app)
+        .put(`/api/applications/${applicationIds[1]}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          status: 'interview',
+          notes: 'Phone screening scheduled for next week',
+          event_type: 'status_change'
+        });
+        
+      await request(app)
+        .put(`/api/applications/${applicationIds[2]}`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          status: 'rejected',
+          notes: 'Position was filled internally',
+          event_type: 'status_change'
+        });
+    }
+    
+    // Update some job statuses for variety  
+    if (jobIds.length >= 3) {
+      await request(app)
+        .patch(`/api/jobs/${jobIds[2]}/status`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ status: 'closed' });
+        
+      await request(app)
+        .patch(`/api/jobs/${jobIds[4]}/status`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ status: 'closed' });
     }
   });
 
@@ -373,12 +392,12 @@ describe('Enhanced GET Endpoints - Filtering, Pagination, Search', () => {
     describe('Filtering', () => {
       it('should filter applications by status', async () => {
         const res = await request(app)
-          .get('/api/applications?status=applied')
+          .get('/api/applications?status=submitted')
           .set('Authorization', `Bearer ${token}`)
           .expect(200);
 
         expect(res.body.data.length).toBeGreaterThan(0);
-        expect(res.body.data.every((app: any) => app.status === 'applied')).toBe(true);
+        expect(res.body.data.every((app: any) => app.status === 'submitted')).toBe(true);
       });
 
       it('should filter applications by job company', async () => {
@@ -441,14 +460,14 @@ describe('Enhanced GET Endpoints - Filtering, Pagination, Search', () => {
     describe('Combined Features', () => {
       it('should combine search, filtering, and pagination for applications', async () => {
         const res = await request(app)
-          .get('/api/applications?search=frontend&status=applied&limit=1')
+          .get('/api/applications?search=frontend&status=submitted&limit=1')
           .set('Authorization', `Bearer ${token}`)
           .expect(200);
 
         expect(res.body.pagination.limit).toBe(1);
         
         if (res.body.data.length > 0) {
-          expect(res.body.data.every((app: any) => app.status === 'applied')).toBe(true);
+          expect(res.body.data.every((app: any) => app.status === 'submitted')).toBe(true);
           expect(res.body.data.some((app: any) =>
             app.job_details.title.toLowerCase().includes('frontend') ||
             app.notes.toLowerCase().includes('frontend')

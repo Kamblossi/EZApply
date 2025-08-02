@@ -29,7 +29,7 @@ export const JobDTO = z.object({
     description: 'Original job posting URL',
     example: 'https://www.jobs.nhs.uk/xi/vacancy/916123456'
   }),
-  status: z.string().default('open').openapi({
+  status: z.enum(['open', 'closed', 'archived']).default('open').openapi({
     description: 'Current status of the job posting',
     example: 'open',
     enum: ['open', 'closed', 'archived']
@@ -47,4 +47,48 @@ export const JobDTO = z.object({
   description: 'Job posting information'
 });
 
+export const JobInsertSchema = z.object({
+  title: z.string().min(3, 'Job title must be at least 3 characters').openapi({
+    description: 'Job title or position name',
+    example: 'Band 5 Staff Nurse - ICU'
+  }),
+  company: z.string().min(2, 'Company name must be at least 2 characters').openapi({
+    description: 'Company or organization name',
+    example: 'NHS Oxford Foundation Trust'
+  }),
+  location: z.string().optional().openapi({
+    description: 'Job location',
+    example: 'Oxford, UK'
+  }),
+  url: z.string().url('Invalid URL format').openapi({
+    description: 'Original job posting URL (used for deduplication)',
+    example: 'https://www.jobs.nhs.uk/xi/vacancy/916123456'
+  }),
+  description: z.string().optional().openapi({
+    description: 'Detailed job description',
+    example: 'We are seeking an experienced Band 5 Staff Nurse to join our ICU team...'
+  }),
+  status: z.enum(['draft', 'submitted', 'interview', 'rejected', 'accepted']).optional().default('draft').openapi({
+    description: 'Initial application status for this job',
+    example: 'draft',
+    enum: ['draft', 'submitted', 'interview', 'rejected', 'accepted']
+  })
+}).openapi({
+  title: 'JobInsertSchema',
+  description: 'Schema for adding a job to user tracker (shared job model)'
+});
+
+export const JobStatusUpdateSchema = z.object({
+  status: z.enum(['open', 'closed', 'archived']).openapi({
+    description: 'Updated status for the job posting',
+    example: 'closed',
+    enum: ['open', 'closed', 'archived']
+  })
+}).openapi({
+  title: 'JobStatusUpdateSchema',
+  description: 'Schema for updating job posting status'
+});
+
 export type Job = z.infer<typeof JobDTO>;
+export type JobInsertDTO = z.infer<typeof JobInsertSchema>;
+export type JobStatusUpdateDTO = z.infer<typeof JobStatusUpdateSchema>;

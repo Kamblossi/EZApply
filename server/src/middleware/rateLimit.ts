@@ -5,7 +5,7 @@ const isTestEnv = process.env.NODE_ENV === 'test';
 
 export const authLimiter = rateLimit({
   windowMs: isTestEnv ? 1000 : 15 * 60 * 1000, // 1 second for tests, 15 minutes for production
-  max: isTestEnv ? 100 : 5, // 100 requests for tests, 5 for production
+  max: 5, // Always 5 to match test expectations
   message: {
     error: 'Too many attempts. Please try again later.',
   },
