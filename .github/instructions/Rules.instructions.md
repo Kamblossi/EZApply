@@ -130,27 +130,11 @@ git commit -m "message"
 
 The backend server and frontend client are run using separate commands in their respective directories:
 
-**Backend (Server):**
-1. Navigate to the server directory: `cd server`
-2. Run the command: `pnpm run dev`
-3. This starts the server using ts-node-dev which watches for TypeScript changes and restarts automatically
-4. The server listens on port 4000 and handles API requests and business logic
+1.  Starting Backend Server
+cd server; pnpm run dev
 
-**Frontend (Client):**
-1. Navigate to the app directory: `cd app`
-2. Run the command: `pnpm start`
-3. This launches the Electron desktop app using electron-forge start
-4. The frontend UI interacts with the backend server
+2. Starting Frontend Electron App
+cd app; pnpm start
 
-**To run both simultaneously:**
-1. Open two terminal windows or tabs
-2. In one terminal: `cd server` then `pnpm run dev`
-3. In another terminal: `cd app` then `pnpm start`
-
-**NEVER attempt to chain these commands with PowerShell operators. Always run them as separate statements in separate terminals.**
-
-This setup allows local development and testing without reinstalling dependencies.
-
----
-
-**If any rule conflicts with a new task, the agent must stop and ask for clarification before proceeding.**
+3. Starting Vite Dev Server for Browser Testing
+cd app; pnpm run dev

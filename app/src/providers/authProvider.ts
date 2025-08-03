@@ -1,198 +1,54 @@
-import { AuthProvider } from "@refinedev/core";
+import { AuthBindings } from "@refinedev/core";
+import axios from "axios";
+import { jwtDecode } from "jwt-decode";
 
-interface LoginParams {
-  email: string;
-  password: string;
-}
+// For Electron app, use localhost directly since process.env isn't available in renderer
+const API_URL = "http://localhost:4000/api";
 
-interface RegisterParams {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-}
-
-const API_URL = "http://localhost:4000";
-
-export const authProvider: AuthProvider = {
-  // Login method
-  login: async ({ email, password }: LoginParams) => {
-    try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: "POST",
-        body: JSON.stringify({ email, password }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Login failed");
-      }
-
-      const data = await response.json();
-
-      if (data.token && data.user) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        
-        return {
-          success: true,
-          redirectTo: "/dashboard",
-        };
-      }
-
-      throw new Error("Invalid response from server");
-    } catch (error) {
-      return {
-        success: false,
-        error: {
-          name: "LoginError",
-          message: error instanceof Error ? error.message : "Login failed",
-        },
-      };
-    }
+export const authProvider: AuthBindings = {
+  login: async ({ email, password }) => {
+    const { data } = await axios.post(`${API_URL}/auth/login`, { email, password });
+    localStorage.setItem("ez-token", data.token);          // ➊
+    return { success: true };
   },
 
-  // Register method
-  register: async ({ email, password, firstName, lastName }: RegisterParams) => {
-    try {
-      const response = await fetch(`${API_URL}/auth/register`, {
-        method: "POST",
-        body: JSON.stringify({ email, password, firstName, lastName }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Registration failed");
-      }
-
-      const data = await response.json();
-
-      if (data.token && data.user) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem("user", JSON.stringify(data.user));
-        
-        return {
-          success: true,
-          redirectTo: "/dashboard",
-        };
-      }
-
-      throw new Error("Invalid response from server");
-    } catch (error) {
-      return {
-        success: false,
-        error: {
-          name: "RegisterError",
-          message: error instanceof Error ? error.message : "Registration failed",
-        },
-      };
-    }
+  register: async ({ email, password, name }) => {
+    // For the guided lab, we'll split the name into forename and surname
+    const names = name ? name.split(' ') : ['', ''];
+    const forename = names[0] || '';
+    const surname = names.slice(1).join(' ') || 'User';
+    
+    await axios.post(`${API_URL}/auth/register`, { 
+      email, 
+      password, 
+      forename, 
+      surname 
+    });
+    return { success: true };
   },
 
-  // Logout method
   logout: async () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    
-    return {
-      success: true,
-      redirectTo: "/login",
-    };
+    localStorage.removeItem("ez-token");
+    return { success: true };
   },
 
-  // Check authentication status
-  check: async () => {
-    const token = localStorage.getItem("token");
-    
-    if (!token) {
-      return {
-        authenticated: false,
-        redirectTo: "/login",
-      };
-    }
+  check: async () => ({ authenticated: Boolean(localStorage.getItem("ez-token")) }),
 
-    try {
-      // Verify token with backend
-      const response = await fetch(`${API_URL}/auth/me`, {
-        headers: {
-          "Authorization": `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.ok) {
-        return {
-          authenticated: true,
-        };
-      }
-
-      // Token is invalid, remove it
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      
-      return {
-        authenticated: false,
-        redirectTo: "/login",
-      };
-    } catch {
-      // Network error or token invalid
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      
-      return {
-        authenticated: false,
-        redirectTo: "/login",
-      };
-    }
-  },
-
-  // Get user permissions (optional)
-  getPermissions: async () => {
-    const user = localStorage.getItem("user");
-    
-    if (user) {
-      const userData = JSON.parse(user);
-      return userData.permissions || [];
-    }
-    
-    return [];
-  },
-
-  // Get user identity
   getIdentity: async () => {
-    const user = localStorage.getItem("user");
-    
-    if (user) {
-      const userData = JSON.parse(user);
-      return {
-        id: userData.id,
-        name: `${userData.firstName} ${userData.lastName}`,
-        email: userData.email,
-        avatar: userData.avatar || undefined,
-      };
-    }
-    
-    return null;
+    const token = localStorage.getItem("ez-token");
+    if (!token) return null;
+    const { name, email } = jwtDecode<{ name: string; email: string }>(token); // ➋
+    return { name, email };
   },
 
-  // Handle authentication errors
   onError: async (error: any) => {
     if (error?.status === 401) {
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      
+      localStorage.removeItem("ez-token");
       return {
         logout: true,
         redirectTo: "/login",
       };
     }
-
     return {};
   },
 };
