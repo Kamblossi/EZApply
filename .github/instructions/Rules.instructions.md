@@ -129,7 +129,7 @@ git commit -m "message"
 
 ## 11 · **How to start the server and client** 
 
-Always Run the commands in visible terminaks and never in the background. The backend server and frontend client must be run in this exact manner as described below:
+Always Run the commands in visible terminals and never in the background. The backend server and frontend client must be run in this exact manner as described below - that is combine the two commands of changing directory and starting the application/server in a single line as shown below. This ensures that the commands are run in the correct directory and that the application starts correctly:
 
 1.  Starting Backend Server
 cd server; pnpm run dev

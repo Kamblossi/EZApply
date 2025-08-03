@@ -5,6 +5,7 @@ import { dataProvider } from "./providers/dataProvider";
 import { authProvider } from "./providers/authProvider";
 import { Login } from "./pages/auth/Login";
 import { Register } from "./pages/auth/Register";
+import { VerifyEmail } from "./pages/auth/VerifyEmail";
 
 function App() {
   return (
@@ -44,6 +45,7 @@ function App() {
           >
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
           </Route>
         </Routes>
       </Refine>

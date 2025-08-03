@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { useRegister } from '@refinedev/core';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -20,30 +19,48 @@ export const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<any>({});
+  const [loading, setLoading] = useState(false);
 
-  const { mutate: register, isLoading } = useRegister();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    setLoading(true);
 
-    register(
-      {
-        forename,
-        surname,
-        email,
-        password,
-      },
-      {
-        onSuccess: () => {
-          console.log('Registration successful');
+    try {
+      const response = await fetch('http://localhost:3000/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        onError: (error: any) => {
-          console.error('Registration failed:', error);
-          setErrors(error?.response?.data?.errors || { general: 'Registration failed' });
-        },
+        body: JSON.stringify({
+          forename: forename.trim(),
+          surname: surname.trim(),
+          email: email.trim(),
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Registration successful, redirect to verification page
+        navigate('/verify-email', {
+          state: { email: email.trim() }
+        });
+      } else {
+        if (data.error === 'email exists') {
+          setErrors({ general: 'An account with this email already exists.' });
+        } else {
+          setErrors({ general: data.error || 'Registration failed. Please try again.' });
+        }
       }
-    );
+    } catch (err) {
+      setErrors({ general: 'Network error. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -135,10 +152,10 @@ export const Register = () => {
                 type="submit"
                 fullWidth
                 variant="contained"
-                disabled={isLoading}
+                disabled={loading}
                 sx={{ mt: 3, mb: 2 }}
               >
-                {isLoading ? 'Registering...' : 'Register'}
+                {loading ? 'Registering...' : 'Register'}
               </Button>
 
               <Grid container justifyContent="center">

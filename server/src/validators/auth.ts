@@ -59,7 +59,33 @@ export const ErrorResponseDTO = z.object({
   description: 'Error response'
 });
 
+export const VerifyEmailDTO = z.object({
+  email: z.string().email().openapi({ 
+    example: 'alice@example.com',
+    description: 'Email address to verify'
+  }),
+  code: z.string().length(6).openapi({ 
+    example: '123456',
+    description: '6-digit verification code'
+  }),
+}).openapi({
+  title: 'VerifyEmailDTO',
+  description: 'Data required to verify email address'
+});
+
+export const ResendVerificationDTO = z.object({
+  email: z.string().email().openapi({ 
+    example: 'alice@example.com',
+    description: 'Email address to resend verification code to'
+  }),
+}).openapi({
+  title: 'ResendVerificationDTO',
+  description: 'Data required to resend verification code'
+});
+
 export type RegisterUser = z.infer<typeof RegisterUserDTO>;
 export type LoginUser = z.infer<typeof LoginUserDTO>;
+export type VerifyEmail = z.infer<typeof VerifyEmailDTO>;
+export type ResendVerification = z.infer<typeof ResendVerificationDTO>;
 export type AuthResponse = z.infer<typeof AuthResponseDTO>;
 export type ErrorResponse = z.infer<typeof ErrorResponseDTO>;

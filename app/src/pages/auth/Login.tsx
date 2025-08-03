@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useLogin } from '@refinedev/core';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -18,28 +18,50 @@ export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<any>({});
+  const [loading, setLoading] = useState(false);
 
-  const { mutate: login, isLoading } = useLogin();
+  const { mutate: login } = useLogin();
+  const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    setLoading(true);
 
-    login(
-      {
-        email,
-        password,
-      },
-      {
-        onSuccess: () => {
-          console.log('Login successful');
+    try {
+      const response = await fetch('http://localhost:3000/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        onError: (error: any) => {
-          console.error('Login failed:', error);
-          setErrors(error?.response?.data?.errors || { general: 'Login failed' });
-        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Login successful, use Refine's login with token
+        login({ token: data.token });
+      } else {
+        if (data.error === 'email not verified') {
+          // Redirect to verification page
+          navigate('/verify-email', {
+            state: { email: email.trim() }
+          });
+        } else if (data.error === 'invalid creds') {
+          setErrors({ general: 'Invalid email or password.' });
+        } else {
+          setErrors({ general: data.message || data.error || 'Login failed. Please try again.' });
+        }
       }
-    );
+    } catch (err) {
+      setErrors({ general: 'Network error. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -102,10 +124,10 @@ export const Login = () => {
                 type="submit"
                 fullWidth
                 variant="contained"
-                disabled={isLoading}
+                disabled={loading}
                 sx={{ mt: 3, mb: 2 }}
               >
-                {isLoading ? 'Logging in...' : 'Login'}
+                {loading ? 'Logging in...' : 'Login'}
               </Button>
 
               <Grid container justifyContent="center">
