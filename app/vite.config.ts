@@ -11,6 +11,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    strictPort: false, // Allow Vite to use alternative ports if 5173 is busy
+    host: 'localhost',
   },
   resolve: {
     alias: {

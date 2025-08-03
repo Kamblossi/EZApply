@@ -27,8 +27,9 @@ function createWindow() {
   win.setIcon(iconPath);
   
   if (isDev) {
-    // 🧪 DEV: load from Vite dev server
-    win.loadURL('http://localhost:5174');
+    // 🧪 DEV: load from Vite dev server (Electron Forge provides the URL)
+    const devServerUrl = process.env.MAIN_WINDOW_VITE_DEV_SERVER_URL || 'http://localhost:5173';
+    win.loadURL(devServerUrl);
     win.webContents.openDevTools();
   } else {
     // 📦 PROD: load from built index.html

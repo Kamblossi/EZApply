@@ -67,13 +67,14 @@ and then waiting for an explicit `yes` from me.
 
 ---
 
-## 5 · React / Tailwind front-end
+## 5 · React Frontend
 
 1. Components in `src/components/`; pages under `src/pages/`.
-2. State manager: **zustand** only.
-3. UI primitives: **shadcn/ui** – do not import MUI, Ant, etc.
-4. Keep Tailwind class list ≤ 5 per element; extract longer lists to helper strings.
-5. All PRs must pass `npm run lint` and `npm run test`.
+2. Frameworks: **React 18**, **Refine v4**.
+3. UI Primitives: **Material-UI v6** – do not import Ant Design, shadcn/ui, or other component libraries.
+4. State management: **Zustand** (for global/shared state not directly handled by Refine hooks).
+5. Styling: Utilize **Material-UI's styling system** (e.g., `sx` prop, `ThemeProvider`) for consistent UI. Avoid direct use of Tailwind CSS.
+6. All PRs must pass `pnpm lint` and `pnpm test`.
 
 ---
 
@@ -128,13 +129,11 @@ git commit -m "message"
 
 ## 11 · **How to start the server and client** 
 
-The backend server and frontend client are run using separate commands in their respective directories:
+Always Run the commands in visible terminaks and never in the background. The backend server and frontend client must be run in this exact manner as described below:
 
 1.  Starting Backend Server
 cd server; pnpm run dev
 
 2. Starting Frontend Electron App
 cd app; pnpm start
-
-3. Starting Vite Dev Server for Browser Testing
-cd app; pnpm run dev
+(starts the Vite dev server and then Electron app)

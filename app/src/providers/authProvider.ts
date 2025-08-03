@@ -7,24 +7,43 @@ const API_URL = "http://localhost:4000/api";
 
 export const authProvider: AuthBindings = {
   login: async ({ email, password }) => {
-    const { data } = await axios.post(`${API_URL}/auth/login`, { email, password });
-    localStorage.setItem("ez-token", data.token);          // ➊
-    return { success: true };
+    try {
+      const { data } = await axios.post(`${API_URL}/auth/login`, { email, password });
+      localStorage.setItem("ez-token", data.token);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Login error:", error);
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error || "Login failed",
+          name: "LoginError"
+        }
+      };
+    }
   },
 
-  register: async ({ email, password, name }) => {
-    // For the guided lab, we'll split the name into forename and surname
-    const names = name ? name.split(' ') : ['', ''];
-    const forename = names[0] || '';
-    const surname = names.slice(1).join(' ') || 'User';
-    
-    await axios.post(`${API_URL}/auth/register`, { 
-      email, 
-      password, 
-      forename, 
-      surname 
-    });
-    return { success: true };
+  register: async ({ email, password, forename, surname }) => {
+    try {
+      const { data } = await axios.post(`${API_URL}/auth/register`, { 
+        email, 
+        password, 
+        forename, 
+        surname 
+      });
+      // Store the token after successful registration
+      localStorage.setItem("ez-token", data.token);
+      return { success: true };
+    } catch (error: any) {
+      console.error("Registration error:", error);
+      return {
+        success: false,
+        error: {
+          message: error.response?.data?.error || "Registration failed",
+          name: "RegisterError"
+        }
+      };
+    }
   },
 
   logout: async () => {
@@ -32,17 +51,42 @@ export const authProvider: AuthBindings = {
     return { success: true };
   },
 
-  check: async () => ({ authenticated: Boolean(localStorage.getItem("ez-token")) }),
+  check: async () => {
+    const token = localStorage.getItem("ez-token");
+    if (!token) return { authenticated: false };
+    
+    try {
+      // Verify token is still valid by decoding it
+      const decoded = jwtDecode(token);
+      const currentTime = Date.now() / 1000;
+      
+      if (decoded.exp && decoded.exp < currentTime) {
+        localStorage.removeItem("ez-token");
+        return { authenticated: false };
+      }
+      
+      return { authenticated: true };
+    } catch (error) {
+      localStorage.removeItem("ez-token");
+      return { authenticated: false };
+    }
+  },
 
   getIdentity: async () => {
     const token = localStorage.getItem("ez-token");
     if (!token) return null;
-    const { name, email } = jwtDecode<{ name: string; email: string }>(token); // ➋
-    return { name, email };
+    
+    try {
+      const { id, email } = jwtDecode<{ id: number; email: string }>(token);
+      return { id, email };
+    } catch (error) {
+      return null;
+    }
   },
 
   onError: async (error: any) => {
-    if (error?.status === 401) {
+    console.error("Auth error:", error);
+    if (error?.status === 401 || error?.response?.status === 401) {
       localStorage.removeItem("ez-token");
       return {
         logout: true,
