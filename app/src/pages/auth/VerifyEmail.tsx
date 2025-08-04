@@ -34,7 +34,7 @@ export const VerifyEmail: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3000/auth/verify-email', {
+      const response = await fetch('http://localhost:4000/api/auth/verify-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ export const VerifyEmail: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:3000/auth/resend-verification', {
+      const response = await fetch('http://localhost:4000/api/auth/resend-verification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
