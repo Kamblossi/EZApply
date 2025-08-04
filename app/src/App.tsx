@@ -1,8 +1,10 @@
 import { Refine, Authenticated, WelcomePage } from "@refinedev/core";
 import { BrowserRouter, Route, Routes, Outlet } from "react-router-dom";
 import routerBindings, { CatchAllNavigate, NavigateToResource } from "@refinedev/react-router";
+import { ThemeProvider } from "@mui/material/styles";
 import { dataProvider } from "./providers/dataProvider";
 import { authProvider } from "./providers/authProvider";
+import { ezTheme } from "./theme";
 import { Login } from "./pages/auth/Login";
 import { Register } from "./pages/auth/Register";
 import { VerifyEmail } from "./pages/auth/VerifyEmail";
@@ -10,16 +12,17 @@ import { VerifyEmail } from "./pages/auth/VerifyEmail";
 function App() {
   return (
     <BrowserRouter>
-      <Refine
-        dataProvider={dataProvider}
-        authProvider={authProvider}
-        routerProvider={routerBindings}
-        resources={[
-          { name: "profile" },
-          { name: "jobs" },
-          { name: "applications" },
-        ]}
-      >
+      <ThemeProvider theme={ezTheme}>
+        <Refine
+          dataProvider={dataProvider}
+          authProvider={authProvider}
+          routerProvider={routerBindings}
+          resources={[
+            { name: "profile" },
+            { name: "jobs" },
+            { name: "applications" },
+          ]}
+        >
         <Routes>
           <Route
             element={
@@ -48,7 +51,8 @@ function App() {
             <Route path="/verify-email" element={<VerifyEmail />} />
           </Route>
         </Routes>
-      </Refine>
+        </Refine>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }
