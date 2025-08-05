@@ -1,4 +1,4 @@
-import { Refine, Authenticated, WelcomePage } from "@refinedev/core";
+import { Refine, Authenticated } from "@refinedev/core";
 import { BrowserRouter, Route, Routes, Outlet } from "react-router-dom";
 import routerBindings, { CatchAllNavigate, NavigateToResource } from "@refinedev/react-router";
 import { ThemeProvider } from "@mui/material/styles";
@@ -8,6 +8,7 @@ import { ezTheme } from "./theme";
 import { Login } from "./pages/auth/Login";
 import { Register } from "./pages/auth/Register";
 import { VerifyEmail } from "./pages/auth/VerifyEmail";
+import { ProfileEdit } from "./pages/auth/ProfileEdit";
 
 function App() {
   return (
@@ -18,7 +19,7 @@ function App() {
           authProvider={authProvider}
           routerProvider={routerBindings}
           resources={[
-            { name: "profile" },
+            { name: "profile", list: "/profile", edit: "/profile/edit", show: "/profile/show" },
             { name: "jobs" },
             { name: "applications" },
           ]}
@@ -26,7 +27,7 @@ function App() {
         <Routes>
           <Route
             element={
-              <Authenticated fallback={<CatchAllNavigate to="/login" />}>
+              <Authenticated key="authenticated-inner" fallback={<CatchAllNavigate to="/login" />}> 
                 <div style={{ padding: '20px' }}>
                   <h1>EZApply - Step 4: Authenticated Area</h1>
                   <Outlet />
@@ -35,13 +36,14 @@ function App() {
             }
           >
             <Route index element={<NavigateToResource resource="profile" />} />
-            <Route path="/profile" element={<WelcomePage />} />
-            <Route path="/jobs" element={<WelcomePage />} />
-            <Route path="/applications" element={<WelcomePage />} />
+            <Route path="/profile" element={<ProfileEdit />} />
+            <Route path="/profile/edit" element={<ProfileEdit />} />
+            <Route path="/jobs" element={<div>Jobs page coming soon</div>} />
+            <Route path="/applications" element={<div>Applications page coming soon</div>} />
           </Route>
           <Route
             element={
-              <Authenticated key="authenticated-outer" fallback={<Outlet />}>
+              <Authenticated key="authenticated-outer" fallback={<Outlet />}> 
                 <NavigateToResource />
               </Authenticated>
             }

@@ -3,7 +3,7 @@ applyTo: '**'
 ---
 Provide project context and coding guidelines that AI should follow when generating code, answering questions, or reviewing changes.
 
-### EZApply — **Blackbox-agent Guard-Rails (v 1.1)**
+### EZApply — **Guard-Rails (v 1.1)**
 
 EZApply is a local-first desktop application that automates job applications on NHS Trac (and other ATS portals).
 
@@ -95,14 +95,7 @@ and then waiting for an explicit `yes` from me.
 
 ---
 
-## 8 · Dev-mode hot reload
-
-1. Front-end watch: `npm run tauri dev`.
-2. Backend watch: `cargo watch -q -x run` allowed *only* in dev, never in production scripts.
-
----
-
-## 9 · Logging & analytics
+## 8 · Logging & analytics
 
 1. Log format: JSON lines with `timestamp`, `level`, `message`, `context`.
 2. Logs stored under `~/EZApply/logs/YYYY-MM-DD.log`.
@@ -110,24 +103,8 @@ and then waiting for an explicit `yes` from me.
 
 ---
 
-## 10 · **PowerShell git syntax** 
 
-– when executing git or shell commands on Windows,
-   **never** chain them with `&&` or `||`.  
-   Instead run them **as separate statements**:
-
-```powershell
-# ❌ Wrong - doesn't work in PowerShell
-git add . && git commit -m "message"
-
-# ✅ Correct - separate statements
-git add .
-git commit -m "message"
-```
-
----
-
-## 11 · **How to start the server and client** 
+## 10 · **How to start the server and client** 
 
 Always Run the commands in visible terminals and never in the background. The backend server and frontend client must be run in this exact manner as described below - that is combine the two commands of changing directory and starting the application/server in a single line as shown below. This ensures that the commands are run in the correct directory and that the application starts correctly:
 

@@ -11,3 +11,5 @@ cd app; pnpm start
 
 4. Starting Vite Dev Server for Browser Testing
 cd app; pnpm run dev
+
+Though (starting the Electron App automatically starts the Vite dev server and then Electron app)

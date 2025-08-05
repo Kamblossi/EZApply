@@ -6,6 +6,8 @@ import {
   Card,
   CardContent,
   TextField,
+  InputAdornment,
+  IconButton,
   Button,
   Typography,
   Alert,
@@ -15,6 +17,11 @@ import {
 } from '@mui/material';
 
 export const Login = () => {
+  const [showPassword, setShowPassword] = useState(false);
+  const handleClickShowPassword = () => setShowPassword((show) => !show);
+  const handleMouseDownPassword = (event: React.MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+  };
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<any>({});
@@ -26,8 +33,34 @@ export const Login = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
-    setLoading(true);
 
+    // Frontend validation
+    const trimmedEmail = email.trim();
+    let valid = true;
+    const newErrors: any = {};
+
+    if (!trimmedEmail) {
+      newErrors.email = 'Email is required.';
+      valid = false;
+    } else if (!/^\S+@\S+\.\S+$/.test(trimmedEmail)) {
+      newErrors.email = 'Enter a valid email address.';
+      valid = false;
+    }
+
+    if (!password) {
+      newErrors.password = 'Password is required.';
+      valid = false;
+    } else if (password.length < 8) {
+      newErrors.password = 'Password must be at least 8 characters.';
+      valid = false;
+    }
+
+    if (!valid) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setLoading(true);
     try {
       const response = await fetch('http://localhost:4000/api/auth/login', {
         method: 'POST',
@@ -35,7 +68,7 @@ export const Login = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: email.trim(),
+          email: trimmedEmail,
           password,
         }),
       });
@@ -43,13 +76,13 @@ export const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        // Login successful, use Refine's login with token
-        login({ token: data.token });
+        // Login successful, use Refine's login with token and credentials
+        login({ email: trimmedEmail, password });
       } else {
         if (data.error === 'email not verified') {
           // Redirect to verification page
           navigate('/verify-email', {
-            state: { email: email.trim() }
+            state: { email: trimmedEmail }
           });
         } else if (data.error === 'invalid creds') {
           setErrors({ general: 'Invalid email or password.' });
@@ -103,13 +136,31 @@ export const Login = () => {
                     fullWidth
                     name="password"
                     label="Password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     id="password"
                     autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     error={!!errors.password}
                     helperText={errors.password}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            aria-label={showPassword ? 'Hide password' : 'Show password'}
+                            onClick={handleClickShowPassword}
+                            onMouseDown={handleMouseDownPassword}
+                            edge="end"
+                          >
+                            {showPassword ? (
+                              <span role="img" aria-label="Hide">🙈</span>
+                            ) : (
+                              <span role="img" aria-label="Show">👁️</span>
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
                   />
                 </Grid>
               </Grid>
