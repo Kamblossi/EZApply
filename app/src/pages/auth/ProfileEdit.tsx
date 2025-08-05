@@ -1,4 +1,5 @@
 import { Edit, useDataGrid } from "@refinedev/mui";
+import { useDataProvider, useInvalidate } from "@refinedev/core";
 import { 
   Tabs, 
   Tab, 
@@ -10,10 +11,7 @@ import {
   TextField, 
   Paper,
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
+  // Removed unused Dialog imports
 } from "@mui/material";
 import { DataGrid, GridActionsCellItem, GridColDef } from "@mui/x-data-grid";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -29,7 +27,6 @@ import EditIcon from "@mui/icons-material/ModeEditOutline";
 import AddIcon from "@mui/icons-material/Add";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm, FormProvider, useWatch, useFormContext } from "react-hook-form";
-import { useDataProvider } from "@refinedev/core";
 import dayjs from "dayjs";
 import React from "react";
 
@@ -84,9 +81,9 @@ const AvatarField = () => {
 };
 
 const EmploymentTable = () => {
-  const [dialogOpen, setDialogOpen] = React.useState(false);
   const dataProvider = useDataProvider();
-  const { dataGridProps, refetch } = useDataGrid({
+  const invalidate = useInvalidate();
+  const { dataGridProps } = useDataGrid({
     resource: "profile/employment",
     pagination: { pageSize: 5 },
   });
@@ -104,8 +101,7 @@ const EmploymentTable = () => {
       field: "end_date",
       headerName: "To",
       width: 120,
-      valueFormatter: ({ value }) =>
-        value ? dayjs(value).format("MMM YYYY") : "Present",
+      valueFormatter: ({ value }) => value ? dayjs(value).format("MMM YYYY") : "Present",
     },
     {
       type: "actions",
@@ -113,48 +109,45 @@ const EmploymentTable = () => {
       headerName: "Actions",
       width: 120,
       getActions: ({ id }) => [
-        <GridActionsCellItem 
+        <GridActionsCellItem
           key="edit"
-          icon={<EditIcon />} 
-          label="Edit" 
-          onClick={() => {/* TODO: Edit dialog */}} 
+          icon={<EditIcon />}
+          label="Edit"
+          onClick={() => {/* TODO: Edit dialog */}}
         />,
-        <GridActionsCellItem 
+        <GridActionsCellItem
           key="delete"
-          icon={<DeleteIcon />} 
-          label="Delete" 
+          icon={<DeleteIcon />}
+          label="Delete"
           onClick={async () => {
             try {
-              await dataProvider.deleteOne("profile/employment", { id });
-              refetch();
+              await dataProvider().deleteOne({
+                resource: "profile/employment",
+                id,
+              });
+              invalidate({
+                resource: "profile/employment",
+                invalidates: ["list"]
+              });
             } catch (error) {
               console.error("Delete failed:", error);
             }
-          }} 
+          }}
         />,
       ],
     },
   ];
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }} 
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       <Paper elevation={1} sx={{ p: 2, borderRadius: 3 }}>
-        <Button
-          startIcon={<AddIcon />}
-          variant="contained"
-          sx={{ mb: 2 }}
-          onClick={() => setDialogOpen(true)}
-        >
+        <Button startIcon={<AddIcon />} variant="contained" sx={{ mb: 2 }}>
           Add Employment
         </Button>
-        <DataGrid 
-          {...dataGridProps} 
-          columns={columns} 
-          autoHeight 
+        <DataGrid
+          {...dataGridProps}
+          columns={columns}
+          autoHeight
           density="comfortable"
           disableRowSelectionOnClick
         />
@@ -164,9 +157,9 @@ const EmploymentTable = () => {
 };
 
 const EducationTable = () => {
-  const [dialogOpen, setDialogOpen] = React.useState(false);
   const dataProvider = useDataProvider();
-  const { dataGridProps, refetch } = useDataGrid({
+  const invalidate = useInvalidate();
+  const { dataGridProps } = useDataGrid({
     resource: "profile/education",
     pagination: { pageSize: 5 },
   });
@@ -187,48 +180,45 @@ const EducationTable = () => {
       headerName: "Actions",
       width: 120,
       getActions: ({ id }) => [
-        <GridActionsCellItem 
+        <GridActionsCellItem
           key="edit"
-          icon={<EditIcon />} 
-          label="Edit" 
-          onClick={() => {/* TODO: Edit dialog */}} 
+          icon={<EditIcon />}
+          label="Edit"
+          onClick={() => {/* TODO: Edit dialog */}}
         />,
-        <GridActionsCellItem 
+        <GridActionsCellItem
           key="delete"
-          icon={<DeleteIcon />} 
-          label="Delete" 
+          icon={<DeleteIcon />}
+          label="Delete"
           onClick={async () => {
             try {
-              await dataProvider.deleteOne("profile/education", { id });
-              refetch();
+              await dataProvider().deleteOne({
+                resource: "profile/education",
+                id,
+              });
+              invalidate({
+                resource: "profile/education",
+                invalidates: ["list"]
+              });
             } catch (error) {
               console.error("Delete failed:", error);
             }
-          }} 
+          }}
         />,
       ],
     },
   ];
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }} 
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       <Paper elevation={1} sx={{ p: 2, borderRadius: 3 }}>
-        <Button
-          startIcon={<AddIcon />}
-          variant="contained"
-          sx={{ mb: 2 }}
-          onClick={() => setDialogOpen(true)}
-        >
+        <Button startIcon={<AddIcon />} variant="contained" sx={{ mb: 2 }}>
           Add Education
         </Button>
-        <DataGrid 
-          {...dataGridProps} 
-          columns={columns} 
-          autoHeight 
+        <DataGrid
+          {...dataGridProps}
+          columns={columns}
+          autoHeight
           density="comfortable"
           disableRowSelectionOnClick
         />
@@ -238,65 +228,64 @@ const EducationTable = () => {
 };
 
 const ReferencesTable = () => {
-  const [dialogOpen, setDialogOpen] = React.useState(false);
   const dataProvider = useDataProvider();
-  const { dataGridProps, refetch } = useDataGrid({
+  const invalidate = useInvalidate();
+  const { dataGridProps } = useDataGrid({
     resource: "profile/references",
     pagination: { pageSize: 5 },
   });
 
   const columns: GridColDef[] = [
     { field: "name", headerName: "Name", flex: 1 },
-    { field: "relation", headerName: "Relation", flex: 1 },
-    { field: "contact", headerName: "Contact", flex: 1 },
+    { field: "job_title", headerName: "Job Title", flex: 1 },
+    { field: "company", headerName: "Company", flex: 1 },
+    { field: "email", headerName: "Email", flex: 1 },
+    { field: "phone", headerName: "Phone", width: 150 },
     {
       type: "actions",
       field: "actions",
       headerName: "Actions",
       width: 120,
       getActions: ({ id }) => [
-        <GridActionsCellItem 
+        <GridActionsCellItem
           key="edit"
-          icon={<EditIcon />} 
-          label="Edit" 
-          onClick={() => {/* TODO: Edit dialog */}} 
+          icon={<EditIcon />}
+          label="Edit"
+          onClick={() => {/* TODO: Edit dialog */}}
         />,
-        <GridActionsCellItem 
+        <GridActionsCellItem
           key="delete"
-          icon={<DeleteIcon />} 
-          label="Delete" 
+          icon={<DeleteIcon />}
+          label="Delete"
           onClick={async () => {
             try {
-              await dataProvider.deleteOne("profile/references", { id });
-              refetch();
+              await dataProvider().deleteOne({
+                resource: "profile/references",
+                id,
+              });
+              invalidate({
+                resource: "profile/references",
+                invalidates: ["list"]
+              });
             } catch (error) {
               console.error("Delete failed:", error);
             }
-          }} 
+          }}
         />,
       ],
     },
   ];
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }} 
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       <Paper elevation={1} sx={{ p: 2, borderRadius: 3 }}>
-        <Button
-          startIcon={<AddIcon />}
-          variant="contained"
-          sx={{ mb: 2 }}
-          onClick={() => setDialogOpen(true)}
-        >
+        <Button startIcon={<AddIcon />} variant="contained" sx={{ mb: 2 }}>
           Add Reference
         </Button>
-        <DataGrid 
-          {...dataGridProps} 
-          columns={columns} 
-          autoHeight 
+        <DataGrid
+          {...dataGridProps}
+          columns={columns}
+          autoHeight
           density="comfortable"
           disableRowSelectionOnClick
         />

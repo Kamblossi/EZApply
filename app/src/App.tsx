@@ -9,6 +9,10 @@ import { Login } from "./pages/auth/Login";
 import { Register } from "./pages/auth/Register";
 import { VerifyEmail } from "./pages/auth/VerifyEmail";
 import { ProfileEdit } from "./pages/auth/ProfileEdit";
+import { JobsList } from "./pages/jobs/JobsList";
+import { Dashboard } from "./pages/dashboard/Dashboard";
+import { ApplicationsList } from "./pages/applications/ApplicationsList";
+import { ApplicationWizard } from "./pages/applications/ApplicationWizard";
 
 function App() {
   return (
@@ -20,8 +24,8 @@ function App() {
           routerProvider={routerBindings}
           resources={[
             { name: "profile", list: "/profile", edit: "/profile/edit", show: "/profile/show" },
-            { name: "jobs" },
-            { name: "applications" },
+            { name: "jobs", list: "/jobs" },
+            { name: "applications", list: "/applications" },
           ]}
         >
         <Routes>
@@ -35,11 +39,12 @@ function App() {
               </Authenticated>
             }
           >
-            <Route index element={<NavigateToResource resource="profile" />} />
+            <Route index element={<Dashboard />} />
             <Route path="/profile" element={<ProfileEdit />} />
             <Route path="/profile/edit" element={<ProfileEdit />} />
-            <Route path="/jobs" element={<div>Jobs page coming soon</div>} />
-            <Route path="/applications" element={<div>Applications page coming soon</div>} />
+            <Route path="/jobs" element={<JobsList />} />
+            <Route path="/applications" element={<ApplicationsList />} />
+            <Route path="/applications/new" element={<ApplicationWizard />} />
           </Route>
           <Route
             element={
