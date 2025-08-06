@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import swaggerUi from 'swagger-ui-express';
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 import { z } from 'zod';
 import { OpenAPIRegistry, OpenApiGeneratorV3 } from '@asteasolutions/zod-to-openapi';
 
@@ -15,6 +17,11 @@ import { educationRouter } from './routes/education';
 import { referencesRouter } from './routes/references';
 import { documentsRouter } from './routes/documents';
 import { skillsRouter } from './routes/skills';
+import streamingRouter from './routes/streaming';
+import uploadsRouter from './routes/uploads';
+import automationRouter from './routes/automation';
+import runsRouter from './routes/runs';
+import dashboardRouter, { setupDashboardWebSocket } from './routes/dashboard';
 import { requireAuth } from './middleware/auth';
 import { RegisterUserDTO, LoginUserDTO, AuthResponseDTO, ErrorResponseDTO } from './validators/auth';
 import { ProfileDTO } from './validators/profile';
@@ -25,6 +32,19 @@ import { UserDTO } from './validators/user';
 dotenv.config();
 
 const app = express();
+const server = createServer(app);
+
+// Setup Socket.IO with CORS configuration
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    credentials: true,
+    methods: ['GET', 'POST']
+  }
+});
+
+// Setup WebSocket handlers
+setupDashboardWebSocket(io);
 
 // Configure CORS for development
 app.use(cors({
@@ -48,6 +68,13 @@ app.use('/api/profile/education', requireAuth, educationRouter);
 app.use('/api/profile/references', requireAuth, referencesRouter);
 app.use('/api/profile/documents', requireAuth, documentsRouter);
 app.use('/api/profile/skills', requireAuth, skillsRouter);
+
+// Automation and file upload endpoints
+app.use('/api/automation', automationRouter);
+app.use('/api/runs', runsRouter);
+app.use('/api/dashboard', dashboardRouter);
+app.use('/api/stream', requireAuth, streamingRouter);
+app.use('/api/uploads', requireAuth, uploadsRouter);
 
 // ---------- 🔥 OpenAPI doc generation ----------
 const registry = new OpenAPIRegistry();
@@ -452,11 +479,12 @@ app.use('/swagger', swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
 if (require.main === module) {
   const PORT = process.env.PORT || 4000;
-  app.listen(PORT, () => {
+  server.listen(PORT, () => {
     console.log(`EZApply API running on :${PORT}`);
     console.log(`OpenAPI docs available at: http://localhost:${PORT}/api-docs`);
     console.log(`Swagger UI available at: http://localhost:${PORT}/swagger`);
+    console.log(`WebSocket server enabled for real-time dashboard metrics`);
   });
 }
 
-export { app };
+export { app, io };

@@ -11,5 +11,16 @@ services:
       - "5432:5432"
     volumes:
       - ez-db-data:/var/lib/postgresql/data
+
+  automation-queue:
+    image: redis:7-alpine
+    container_name: ez-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - ez-redis-data:/data
+
 volumes:
   ez-db-data:
+  ez-redis-data:
