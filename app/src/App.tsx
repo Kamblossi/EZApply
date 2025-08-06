@@ -13,6 +13,8 @@ import { JobsList } from "./pages/jobs/JobsList";
 import { Dashboard } from "./pages/dashboard/Dashboard";
 import { ApplicationsList } from "./pages/applications/ApplicationsList";
 import { ApplicationWizard } from "./pages/applications/ApplicationWizard";
+import { Settings } from "./pages/settings/Settings";
+import { NavigationTabs } from "./components/NavigationTabs";
 
 function App() {
   return (
@@ -26,6 +28,7 @@ function App() {
             { name: "profile", list: "/profile", edit: "/profile/edit", show: "/profile/show" },
             { name: "jobs", list: "/jobs" },
             { name: "applications", list: "/applications" },
+            { name: "settings", list: "/settings" },
           ]}
         >
         <Routes>
@@ -33,7 +36,7 @@ function App() {
             element={
               <Authenticated key="authenticated-inner" fallback={<CatchAllNavigate to="/login" />}> 
                 <div style={{ padding: '20px' }}>
-                  <h1>EZApply - Step 4: Authenticated Area</h1>
+                  <NavigationTabs />
                   <Outlet />
                 </div>
               </Authenticated>
@@ -45,6 +48,7 @@ function App() {
             <Route path="/jobs" element={<JobsList />} />
             <Route path="/applications" element={<ApplicationsList />} />
             <Route path="/applications/new" element={<ApplicationWizard />} />
+            <Route path="/settings" element={<Settings />} />
           </Route>
           <Route
             element={
