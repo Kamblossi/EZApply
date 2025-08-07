@@ -10,6 +10,8 @@ import { Register } from "./pages/auth/Register";
 import { VerifyEmail } from "./pages/auth/VerifyEmail";
 import { ProfileEdit } from "./pages/auth/ProfileEdit";
 import { JobsList } from "./pages/jobs/JobsList";
+import { AddJob } from "./pages/jobs/AddJob";
+import { DiscoverJobs } from "./pages/jobs/DiscoverJobs";
 import { Dashboard } from "./pages/dashboard/Dashboard";
 import { ApplicationsList } from "./pages/applications/ApplicationsList";
 import { ApplicationWizard } from "./pages/applications/ApplicationWizard";
@@ -46,6 +48,8 @@ function App() {
             <Route path="/profile" element={<ProfileEdit />} />
             <Route path="/profile/edit" element={<ProfileEdit />} />
             <Route path="/jobs" element={<JobsList />} />
+            <Route path="/jobs/add" element={<AddJob />} />
+            <Route path="/jobs/discover" element={<DiscoverJobs />} />
             <Route path="/applications" element={<ApplicationsList />} />
             <Route path="/applications/new" element={<ApplicationWizard />} />
             <Route path="/settings" element={<Settings />} />

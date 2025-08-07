@@ -2,33 +2,54 @@ import {
   useDataGrid,
 } from "@refinedev/mui";
 import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem } from "@mui/x-data-grid";
-import { Typography, Box, Button } from "@mui/material";
+import { 
+  Typography, 
+  Box, 
+  Button, 
+  Menu, 
+  MenuItem, 
+  ListItemIcon, 
+  ListItemText,
+  Divider
+} from "@mui/material";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 import { 
   Visibility as VisibilityIcon,
-  Add as AddIcon
+  Search as SearchIcon,
+  Add as AddIcon,
+  KeyboardArrowDown as ArrowDownIcon
 } from "@mui/icons-material";
-
-interface JobData {
-  id: string;
-  title: string;
-  employer: string;
-  location: string;
-  deadline: string;
-}
 
 export const JobsList = () => {
   const navigate = useNavigate();
   const { dataGridProps } = useDataGrid({ resource: "jobs" });
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const open = Boolean(anchorEl);
 
   const handleViewJob = (jobId: string) => {
     // Navigate to applications page with selected job for application wizard
     navigate(`/applications/new?jobId=${jobId}`);
   };
 
-  const handleCreateNewApplication = () => {
-    // Navigate to applications page to start new application
-    navigate('/applications/new');
+  const handleJobDiscoveryClick = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleAddJob = () => {
+    handleMenuClose();
+    // Navigate to manual job addition form
+    navigate('/jobs/add');
+  };
+
+  const handleDiscoverJobs = () => {
+    handleMenuClose();
+    // Navigate to job discovery/scraping interface
+    navigate('/jobs/discover');
   };
 
   const columns: GridColDef[] = [
@@ -54,7 +75,7 @@ export const JobsList = () => {
 
   return (
     <Box sx={{ height: '100%' }}>
-      {/* Header with Jobs title and New Application button */}
+      {/* Header with Jobs title and Job Discovery button */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -65,19 +86,68 @@ export const JobsList = () => {
           Jobs
         </Typography>
         
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={handleCreateNewApplication}
-          sx={{
-            background: 'linear-gradient(45deg, #00b894 30%, #00cec9 90%)',
-            '&:hover': {
-              background: 'linear-gradient(45deg, #019874 30%, #00b2a9 90%)',
-            }
-          }}
-        >
-          New Application
-        </Button>
+        <Box>
+          <Button
+            variant="contained"
+            startIcon={<SearchIcon />}
+            endIcon={<ArrowDownIcon />}
+            onClick={handleJobDiscoveryClick}
+            sx={{
+              background: 'linear-gradient(45deg, #00b894 30%, #00cec9 90%)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #019874 30%, #00b2a9 90%)',
+              }
+            }}
+          >
+            Job Discovery
+          </Button>
+          
+          <Menu
+            anchorEl={anchorEl}
+            open={open}
+            onClose={handleMenuClose}
+            anchorOrigin={{
+              vertical: 'bottom',
+              horizontal: 'right',
+            }}
+            transformOrigin={{
+              vertical: 'top',
+              horizontal: 'right',
+            }}
+            PaperProps={{
+              sx: {
+                mt: 1,
+                minWidth: 200,
+                '& .MuiMenuItem-root': {
+                  px: 2,
+                  py: 1.5,
+                },
+              },
+            }}
+          >
+            <MenuItem onClick={handleAddJob}>
+              <ListItemIcon>
+                <AddIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Add Job"
+                secondary="Manual job entry"
+              />
+            </MenuItem>
+            
+            <Divider />
+            
+            <MenuItem onClick={handleDiscoverJobs}>
+              <ListItemIcon>
+                <SearchIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText 
+                primary="Discover Jobs"
+                secondary="Automated job scraping"
+              />
+            </MenuItem>
+          </Menu>
+        </Box>
       </Box>
       
       {/* Jobs Table - Full Width */}

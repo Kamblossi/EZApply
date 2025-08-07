@@ -6,6 +6,7 @@ import ErrorIcon from "@mui/icons-material/Error";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import PlayCircleIcon from "@mui/icons-material/PlayCircle";
 import ClockIcon from "@mui/icons-material/Schedule";
+import AddIcon from "@mui/icons-material/Add";
 import { 
   Chip, 
   Drawer, 
@@ -13,7 +14,8 @@ import {
   Box, 
   Paper,
   IconButton,
-  CircularProgress
+  CircularProgress,
+  Button
 } from "@mui/material";
 import {
   Timeline,
@@ -26,7 +28,6 @@ import {
 import CloseIcon from "@mui/icons-material/Close";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { GlowButton } from "../../components/ui";
 
 interface LogEntry {
   step: number;
@@ -287,21 +288,19 @@ export const ApplicationsList = () => {
           Applications
         </Typography>
         
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.3 }}
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreateNewApplication}
+          sx={{
+            background: 'linear-gradient(45deg, #00b894 30%, #00cec9 90%)',
+            '&:hover': {
+              background: 'linear-gradient(45deg, #019874 30%, #00b2a9 90%)',
+            }
+          }}
         >
-          <GlowButton
-            onClick={handleCreateNewApplication}
-            glowStartColor="#00b894"
-            glowEndColor="#00cec9"
-            backgroundColor="#186b63"
-            textColor="#ffffff"
-          >
-            New Application
-          </GlowButton>
-        </motion.div>
+          New Application
+        </Button>
       </Box>
 
       <List>
