@@ -1,11 +1,13 @@
 import {
   useDataGrid,
 } from "@refinedev/mui";
-import { DataGrid, GridColDef, GridToolbar } from "@mui/x-data-grid";
-import { Typography, Box } from "@mui/material";
+import { DataGrid, GridColDef, GridToolbar, GridActionsCellItem } from "@mui/x-data-grid";
+import { Typography, Box, Button } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
-import ApplicationWizardCard from "../../components/jobs/ApplicationWizardCard";
+import { 
+  Visibility as VisibilityIcon,
+  Add as AddIcon
+} from "@mui/icons-material";
 
 interface JobData {
   id: string;
@@ -18,20 +20,15 @@ interface JobData {
 export const JobsList = () => {
   const navigate = useNavigate();
   const { dataGridProps } = useDataGrid({ resource: "jobs" });
-  const [selectedJob, setSelectedJob] = useState<JobData | null>(null);
 
-  const handleJobSelect = (job: JobData) => {
-    setSelectedJob(job);
+  const handleViewJob = (jobId: string) => {
+    // Navigate to applications page with selected job for application wizard
+    navigate(`/applications/new?jobId=${jobId}`);
   };
 
-  const handleStartWizard = () => {
-    if (!selectedJob) {
-      // You could show a toast/snackbar here instead
-      alert('Please select a job from the table first');
-      return;
-    }
-    // Navigate to application wizard with the selected job
-    navigate(`/applications/new?jobId=${selectedJob.id}`);
+  const handleCreateNewApplication = () => {
+    // Navigate to applications page to start new application
+    navigate('/applications/new');
   };
 
   const columns: GridColDef[] = [
@@ -39,11 +36,25 @@ export const JobsList = () => {
     { field: "employer", headerName: "Employer", flex: 1 },
     { field: "location", headerName: "Location", flex: 0.8 },
     { field: "deadline", headerName: "Deadline", type: "date", width: 140 },
+    {
+      field: "actions",
+      type: "actions",
+      headerName: "Actions",
+      width: 100,
+      getActions: (params) => [
+        <GridActionsCellItem
+          key="apply"
+          icon={<VisibilityIcon />}
+          label="Apply for this job"
+          onClick={() => handleViewJob(params.id as string)}
+        />,
+      ],
+    },
   ];
 
   return (
     <Box sx={{ height: '100%' }}>
-      {/* Header with Jobs title and Application Wizard button */}
+      {/* Header with Jobs title and New Application button */}
       <Box sx={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -54,10 +65,19 @@ export const JobsList = () => {
           Jobs
         </Typography>
         
-        <ApplicationWizardCard 
-          selectedJob={selectedJob}
-          onStartWizard={handleStartWizard}
-        />
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={handleCreateNewApplication}
+          sx={{
+            background: 'linear-gradient(45deg, #00b894 30%, #00cec9 90%)',
+            '&:hover': {
+              background: 'linear-gradient(45deg, #019874 30%, #00b2a9 90%)',
+            }
+          }}
+        >
+          New Application
+        </Button>
       </Box>
       
       {/* Jobs Table - Full Width */}
@@ -68,29 +88,13 @@ export const JobsList = () => {
           slots={{ toolbar: GridToolbar }}
           autoHeight={false}
           density="comfortable"
-          disableRowSelectionOnClick={false}
-          onRowClick={(params) => {
-            const jobData: JobData = {
-              id: params.row.id,
-              title: params.row.title,
-              employer: params.row.employer,
-              location: params.row.location,
-              deadline: params.row.deadline
-            };
-            handleJobSelect(jobData);
-          }}
+          disableRowSelectionOnClick={true}
           sx={{
             height: '100%',
             '& .MuiDataGrid-row': {
               cursor: 'pointer',
               '&:hover': {
                 backgroundColor: 'action.hover',
-              },
-              '&.Mui-selected': {
-                backgroundColor: 'primary.50',
-                '&:hover': {
-                  backgroundColor: 'primary.100',
-                },
               },
             },
           }}

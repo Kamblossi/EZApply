@@ -25,6 +25,8 @@ import {
 } from "@mui/lab";
 import CloseIcon from "@mui/icons-material/Close";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { GlowButton } from "../../components/ui";
 
 interface LogEntry {
   step: number;
@@ -228,6 +230,7 @@ export const ApplicationsList = () => {
   const { dataGridProps } = useDataGrid({ resource: "applications" });
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [selectedRunId, setSelectedRunId] = React.useState<string | null>(null);
+  const navigate = useNavigate();
 
   const handleViewLog = (runId: string) => {
     setSelectedRunId(runId);
@@ -237,6 +240,10 @@ export const ApplicationsList = () => {
   const handleCloseDrawer = () => {
     setDrawerOpen(false);
     setSelectedRunId(null);
+  };
+
+  const handleCreateNewApplication = () => {
+    navigate('/applications/new');
   };
 
   const columns: GridColDef[] = [
@@ -269,7 +276,35 @@ export const ApplicationsList = () => {
 
   return (
     <>
-      <List title={<Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>Applications</Typography>}>
+      {/* Applications Header with New Application Button */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3 
+      }}>
+        <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          Applications
+        </Typography>
+        
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <GlowButton
+            onClick={handleCreateNewApplication}
+            glowStartColor="#00b894"
+            glowEndColor="#00cec9"
+            backgroundColor="#186b63"
+            textColor="#ffffff"
+          >
+            New Application
+          </GlowButton>
+        </motion.div>
+      </Box>
+
+      <List>
         <DataGrid
           {...dataGridProps}
           columns={columns}
