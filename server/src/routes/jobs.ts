@@ -3,9 +3,59 @@ import { Router } from 'express';
 import { db } from '../db';
 import { JobDTO, JobInsertSchema, JobStatusUpdateSchema } from '../validators/job'; // Import the new schema
 import { ApplicationDTO } from '../validators/application'; // Import ApplicationDTO for response validation
+import { JobUrlParserService, ParsedJobDataSchema } from '../services/jobUrlParser';
 import { z } from 'zod';
 
 const jobsRouter = Router();
+
+// =====================================================================
+// POST /api/jobs/parse-url - Parse job URL to extract job details
+// =====================================================================
+jobsRouter.post('/parse-url', async (req, res) => {
+  try {
+    // Validate request body
+    const { url } = z.object({ url: z.string().url('Invalid URL format') }).parse(req.body);
+
+    // Parse the job URL
+    const parsedData = await JobUrlParserService.parseJobUrl(url);
+
+    // Return parsed data (always return, even if parsing failed)
+    res.status(200).json(parsedData);
+
+  } catch (error: any) {
+    console.error('Error in parse-url endpoint:', error);
+    
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Validation failed', 
+        details: error.issues 
+      });
+    }
+
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to parse job URL',
+      details: error.message
+    });
+  }
+});
+
+// =====================================================================
+// GET /api/jobs/supported-sites - Get list of supported job sites
+// =====================================================================
+jobsRouter.get('/supported-sites', async (req, res) => {
+  try {
+    const supportedSites = JobUrlParserService.getSupportedSites();
+    res.status(200).json({
+      sites: supportedSites,
+      count: supportedSites.length
+    });
+  } catch (error: any) {
+    console.error('Error getting supported sites:', error);
+    res.status(500).json({ error: 'Failed to get supported sites' });
+  }
+});
 
 // Helper function for timeline suggestions
 function getNextSuggestedAction(status: string): string {
