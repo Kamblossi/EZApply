@@ -40,14 +40,17 @@ const DashboardMetrics: React.FC = () => {
 
   useEffect(() => {
     // Initialize WebSocket connection
-    const socketInstance = io('http://localhost:3001', {
-      withCredentials: true
+    const socketInstance = io('http://localhost:4000', {
+      withCredentials: true,
+      timeout: 10000,
+      forceNew: true
     });
 
     setSocket(socketInstance);
 
     // Authenticate with token
-    const token = localStorage.getItem('authToken');
+    const token = localStorage.getItem('ez-token');
+    
     if (token) {
       socketInstance.emit('authenticate', token);
     }
@@ -68,8 +71,13 @@ const DashboardMetrics: React.FC = () => {
       console.log('Connected to dashboard WebSocket');
     });
 
-    socketInstance.on('disconnect', () => {
-      console.log('Disconnected from dashboard WebSocket');
+    socketInstance.on('connect_error', (error) => {
+      console.error('WebSocket connection error:', error);
+      setLoading(false);
+    });
+
+    socketInstance.on('disconnect', (reason) => {
+      console.log('Disconnected from dashboard WebSocket. Reason:', reason);
     });
 
     // Fetch initial metrics via REST API
@@ -82,17 +90,21 @@ const DashboardMetrics: React.FC = () => {
 
   const fetchMetrics = async () => {
     try {
-      const token = localStorage.getItem('authToken');
-      const response = await fetch('/api/dashboard/metrics', {
+      const token = localStorage.getItem('ez-token');
+      
+      const response = await fetch('http://localhost:4000/api/dashboard/metrics', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
-
+      
       if (response.ok) {
         const data = await response.json();
         setMetrics(data);
         setLastUpdated(new Date());
+      } else {
+        console.error('Failed to fetch metrics:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard metrics:', error);
@@ -103,8 +115,7 @@ const DashboardMetrics: React.FC = () => {
 
   const handleRefresh = () => {
     if (socket) {
-      const userId = 'current-user-id'; // Get from auth context
-      socket.emit('refresh_metrics', { userId });
+      socket.emit('refresh_metrics');
     } else {
       fetchMetrics();
     }

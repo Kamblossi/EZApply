@@ -1,156 +1,145 @@
----
-applyTo: '**'
----
-Provide project context and coding guidelines that AI should follow when generating code, answering questions, or reviewing changes.
+# VERY IMPORTANT: Ensure all changes are project-wide and follow best practices
 
-### EZApply — **Blackbox-agent Guard-Rails (v 1.1)**
+1. When a change or fix is applied to a file, first consider the potential impact on other parts of the project.
+2. After making any change, re-evaluate the entire code file for consistency and correctness.
+3. Actively check for and resolve any new or existing linting errors that are present in the modified code.
+4. Ensure that any code added or modified is compatible with the project's existing structure, dependencies, and styling rules.
+5. Do not consider the task complete until the code is fully functional, free of linting errors, and integrated into the project without new issues.
+# Copilot Instructions for EZApply
 
-EZApply is a local-first desktop application that automates job applications on NHS Trac (and other ATS portals).
+## Project Architecture
+- **EZApply** is a local-first desktop app for automating job applications, built with React (Material-UI v6, Refine v4) in an Electron shell, and a Node.js/Express backend (TypeScript) with PostgreSQL (Docker).
 
-Desktop Client (Windows App): Electron-based frontend (HTML, CSS, JavaScript) for the user interface.
+## Backend Application Blueprint
+- **Node.js/Express (TypeScript)** REST API:
+    - API routes: `server/src/routes/` (auth, profile, jobs, applications)
+    - Validation: Zod schemas in `server/src/validators/`
+    - Middleware: JWT authentication, error handling, rate limiting in `server/src/middleware/`
+    - DB connection: `server/src/db.ts` (PostgreSQL 16, Docker container `ez-db`)
+- All requests validated with Zod; passwords hashed with bcrypt (≥12 rounds).
+- JWT for authentication; tokens managed via middleware.
+- Database queries are parameterized; multi-table ops use transactions.
+- API endpoints:
+    - `/api/profile` (GET, PUT)
+    - `/api/jobs` (CRUD)
+    - `/api/applications` (CRUD)
+    - Nested endpoints for employment, education, references
+- All schema changes via migration files in `migrations/` only.
+- AI calls (OpenAI, Gemini, Claude, Ollama) proxied through backend; embeddings use `text-embedding-3-small`.
+- Logging: JSON lines with `timestamp`, `level`, `message`, `context` in `~/EZApply/logs/YYYY-MM-DD.log`.
+- Security: Manual portal login, encrypted API keys, rate-limited automation, duplicate detection.
 
-Backend Server (API + AI Proxy): A web service likely implemented with Node.js (Express) to handle all core functionalities, including user authentication, job management, and secure proxying of AI interactions.
+## Frontend Application Blueprint (Electron + React + Refine)
 
-PostgreSQL Database: For persistent storage of user accounts, job records, and other application data.
+### Navigation Layout
+- Persistent shell layout:
+    - Navbar (top): app name/logo, user avatar + dropdown (profile, password, logout)
+    - Sidebar (left, collapsible via Zustand): Home, My Profile, Jobs, Applications, Settings
+    - Sidebar collapse state managed in Zustand (`isSidebarCollapsed`)
 
-AI Provider: External services like OpenAI/Gemini API for AI tasks, accessed securely via the backend proxy.
+### Pages & Routing
+- Dashboard (`/dashboard`):
+    - Cards: total applications, in-progress, recent activity, quick action (start new application)
+    - Data via Refine DataProvider from `/api/applications`, `/api/jobs`
+- Profile (`/profile`):
+    - Editable form: forename, surname, email, location, phone
+    - Nested resources: employment, education, references (CRUD via Refine <Resource>)
+- Jobs (`/jobs`):
+    - Discovered jobs (scraping/manual), job builder, status tracking
+- Applications (`/applications`):
+    - Table of automation runs, status, ATS, date, result, AI-generated responses
+- Settings:
+    - Theme toggle, model selector, logging toggle, password change, future notification/data export
 
-## 0 · Golden principle
+### Core Components
+- Atomic design in `/components/`:
+    - Navbar.tsx, Sidebar.tsx, Layout.tsx (Navbar+Sidebar+Outlet)
+    - JobCard.tsx, ApplicationRow.tsx, ProfileEditor.tsx (Zod schema forms)
+- Pages in `/pages/`, using Refine <Resource> routing and hooks (`useList`, `useForm`, etc.)
 
-**The agent must never execute an irreversible command without first printing**
+### State & Providers
+- AuthProvider: JWT token in memory or secure-electron-store
+- DataProvider/AuthProvider: targets `http://localhost:4000/api`
+- Zustand store: sidebar state, user info, theme
 
-```
-COMMAND PREVIEW — PROCEED? (yes/no)
-```
+### Build Plan (Frontend MVP)
+1. Scaffold shell (Electron+Vite+React+Refine+MUI)
+2. Implement auth flow (login/register, AuthProvider)
+3. Resource routing via Refine (profile, jobs, applications)
+4. Dashboard page (aggregate stats, metric cards)
 
-and then waiting for an explicit `yes` from me.
+## Developer Workflows
+- **Start Backend:** `cd server; pnpm run dev` (run in visible terminal)
+- **Start Frontend:** `cd app; pnpm start` (run in visible terminal)
+- **Dev Hot Reload:** Frontend: `npm run tauri dev`. Backend: `cargo watch -q -x run` (dev only).
+- **Lint/Test:** All PRs must pass `pnpm lint` and `pnpm test`.
+- **Git on Windows:** Never chain commands with `&&` or `||`. Run as separate statements.
+- **Secrets:** Never commit API keys (e.g., `sk-...`).
 
----
+## Patterns & Conventions
+- **React:** Use Refine's form hooks for all forms. Use MUI's `sx` prop for styling. Avatar upload fields should use `useController` or `useWatch` from Refine/react-hook-form.
+- **Backend:** Validate all requests with Zod. Use parameterized queries and transactions for multi-table ops. JWT for auth, bcrypt (≥12 rounds) for passwords.
+- **Database:** Never drop/truncate key tables. Connection string from `env("DATABASE_URL")`.
+- **Playwright:** All selectors in `python/selectors.py`. No inline XPath.
+- **Logging:** JSON lines with `timestamp`, `level`, `message`, `context`. Logs in `~/EZApply/logs/YYYY-MM-DD.log`.
+- **Screenshots:** Max 1920×1080 px.
+- **Screen Overlay:** CSS classes prefixed `ez-`. Colors: green `#24c96b`, amber `#ffc857`, red `#ff4d4f`.
 
-## 1 · Repository & file-system safety
+## Integration Points
+- **AI/NLP:** Calls routed via backend proxy. Embedding model: `text-embedding-3-small`. Never log raw résumé text—hash before logging.
+- **Storage:** All structured data in Postgres. Files referenced by absolute path. Storage layout under `~/EZApply/`.
+- **Security:** Manual portal login, encrypted API keys, rate-limited automation, duplicate detection.
 
-1. **Write-only scope** – restrict all edits to the project root. Never reference absolute paths outside `EZApply/`.
-2. **No destructive commands** – disallow `rm -rf`, `git reset --hard`, `git clean -fdx`, `docker volume rm`, `dropdb`, `psql -c "DROP…"`.
-3. **Secrets protection** – never output or commit any string matching `sk-` or other API keys. Keep `data_folder/secrets.yaml` in `.gitignore`.
-4. **Commit hygiene** – *one logical change per commit* (see commit-message rule below) and run `gitleaks protect --staged`; abort push on failure.
-5. **Branch discipline** – work only on `dev`; no force-pushes to `main`. If a history rewrite is required, stop and ask.
+## Example File References
+- `app/src/pages/auth/ProfileEdit.tsx`: Refine TabbedForm, MUI icons, avatar upload pattern.
+- `server/src/routes/`: API endpoints.
+- `migrations/`: SQL migration files.
+- `.github/instructions/rules.md`: Full coding guardrails and workflow rules.
+- `README.md`: Architecture, tech stack, and workflow overview.
 
----
+## MUI Docs Server
+- For advanced MUI questions, use the `mui-mcp` server and follow `.github/instructions/mui.md` for doc retrieval.
 
-## 2 · Database rules (PostgreSQL + Docker)
+## Git Commit & Push Rules
 
-1. Container name must be `ez-db`.
-2. Schema changes **must** be expressed as SQL migration files in `migrations/` and applied with `sqlx migrate run`; direct DDL via `psql` is forbidden.
-3. Never drop or truncate `profile`, `stories`, or `generated_answers` tables.
-4. Connection string read from `env("DATABASE_URL")`, never hard-coded.
+- **Always push changes to GitHub from the root directory** due to the monorepo structure.
+- **Commit messages must use Conventional Commits format:**
 
----
+  Format: `type(scope): subject`
 
-## 3 · Python & Playwright
+  - **type:**
+    - feat: New feature
+    - fix: Bug fix
+    - docs: Documentation
+    - style: Formatting only
+    - refactor: Code refactor
+    - test: Add/correct tests
+    - build: Build system/deps
+    - ci: CI config/scripts
+    - perf: Performance improvement
+    - chore: Other changes
+  - **scope (optional):** e.g., (backend), (frontend), (ui), (auth), (profile)
+  - **subject:** Brief, imperative, capitalized, no period
 
-1. Use the existing virtual-env `.venv`; do **not** create another.
-2. Pin new packages in `requirements.txt` with exact versions; update via `pip-compile`.
-3. All Playwright selectors live in `python/selectors.py`; no inline XPath in logic.
-4. Every new Python module needs at least one `pytest` test (mocked is fine).
+  **Example:**
+  ```
+  feat(ui): Enhance frontend with MUI icons and global theme
+  ```
 
----
+  You may add bullet points for extra context:
+  ```
+  feat: Integrate Amazon SES for email verification
 
-## 3 · Node.js / Express Backend
+  This commit introduces Amazon Simple Email Service (SES) for sending user email verification codes, replacing the previous console-based mock service.
 
-1.  **Framework & Language:** Backend services must be built with Node.js and Express.js, using TypeScript for all new and modified code.
-2.  **API Structure:** Organize API routes within `server/src/routes/`, validation schemas in `server/src/validators/`, and middleware in `server/src/middleware/`. Database connection utilities belong in `server/src/db.ts`.
-3.  **Validation:** All incoming API request bodies and query parameters must be validated using **Zod schemas**. Ensure clear, descriptive error messages for validation failures.
-4.  **Authentication:** JWT (JSON Web Tokens) must be used for all authentication, with token generation and verification handled by dedicated middleware (`auth.ts`). Passwords must be hashed using `bcrypt` with a minimum of 12 salt rounds.
-5.  **Error Handling:** Implement consistent error handling across all API endpoints. Use appropriate HTTP status codes (e.g., 400 for validation errors, 401 for authentication, 404 for not found, 500 for internal server errors) and standardized JSON error responses.
-6.  **Database Interactions:** All database queries must be parameterized to prevent SQL injection. For complex operations involving multiple tables (e.g., nested profile updates, cascading deletes), utilize PostgreSQL transactions to ensure data integrity.
-7.  **GET Endpoint Enhancements:** Implement filtering, pagination, and searching capabilities for all list (`GET /api/*`) endpoints. Use clear query parameters (e.g., `?page=X&limit=Y`, `?search=keyword`, `?status=Z`) and return structured responses including `data`, `pagination` metadata, and `filters` applied.
-
----
-
-## 5 · React / Tailwind front-end
-
-1. Components in `src/components/`; pages under `src/pages/`.
-2. State manager: **zustand** only.
-3. UI primitives: **shadcn/ui** – do not import MUI, Ant, etc.
-4. Keep Tailwind class list ≤ 5 per element; extract longer lists to helper strings.
-5. All PRs must pass `npm run lint` and `npm run test`.
-
----
-
-## 6 · AI & embedding calls
-
-1. Read the OpenAI key from `process.env.OPENAI_API_KEY`.
-2. Embedding model fixed to `text-embedding-3-small`.
-3. Abort generation if prompt + completion > 4 000 tokens; ask me first.
-4. Do not log raw résumé text—hash it before writing logs.
-
----
-
-## 7 · Screen overlay rules
-
-1. No external script injection; use Playwright `evaluate` only.
-2. Overlay CSS classes must be prefixed `ez-`.
-3. Colour codes: `#24c96b` (green), `#ffc857` (amber), `#ff4d4f` (red).
-
----
-
-## 8 · Dev-mode hot reload
-
-1. Front-end watch: `npm run tauri dev`.
-2. Backend watch: `cargo watch -q -x run` allowed *only* in dev, never in production scripts.
-
----
-
-## 9 · Logging & analytics
-
-1. Log format: JSON lines with `timestamp`, `level`, `message`, `context`.
-2. Logs stored under `~/EZApply/logs/YYYY-MM-DD.log`.
-3. Screenshots must not exceed 1920 × 1080; resize beforehand.
-
----
-
-## 10 · **PowerShell git syntax** 
-
-– when executing git or shell commands on Windows,
-   **never** chain them with `&&` or `||`.  
-   Instead run them **as separate statements**:
-
-```powershell
-# ❌ Wrong - doesn't work in PowerShell
-git add . && git commit -m "message"
-
-# ✅ Correct - separate statements
-git add .
-git commit -m "message"
-```
-
----
-
-## 11 · **How to start the server and client** 
-
-The backend server and frontend client are run using separate commands in their respective directories:
-
-**Backend (Server):**
-1. Navigate to the server directory: `cd server`
-2. Run the command: `pnpm run dev`
-3. This starts the server using ts-node-dev which watches for TypeScript changes and restarts automatically
-4. The server listens on port 4000 and handles API requests and business logic
-
-**Frontend (Client):**
-1. Navigate to the app directory: `cd app`
-2. Run the command: `pnpm start`
-3. This launches the Electron desktop app using electron-forge start
-4. The frontend UI interacts with the backend server
-
-**To run both simultaneously:**
-1. Open two terminal windows or tabs
-2. In one terminal: `cd server` then `pnpm run dev`
-3. In another terminal: `cd app` then `pnpm start`
-
-**NEVER attempt to chain these commands with PowerShell operators. Always run them as separate statements in separate terminals.**
-
-This setup allows local development and testing without reinstalling dependencies.
+  Key changes and resolved issues include:
+  - **SES Client Setup:** Configured `@aws-sdk/client-ses` in `server/src/services/email.ts` to connect to AWS SES.
+  - **Environment Variables:** Added `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION`, and `SES_FROM_EMAIL` to the `server/.env` file for secure credential management.
+  - **Resolved Invalid Credentials:** Fixed an `InvalidClientTokenId` error by correcting the AWS Access Key and Secret Access Key in the `.env` configuration.
+  - **Improved Registration Flow (Bug Fix):** Addressed a logical bug where users were created in the database even if the verification email failed to send (`ghost user` problem). The `POST /auth/register` endpoint now attempts to send the verification email *before* persisting the user to the database. If email sending fails, the user record is not created.
+  - **SES Sandbox Compliance:** Ensured successful email delivery in AWS SES sandbox mode by verifying both the sender and recipient email identities in the SES console.
+  ```
 
 ---
 
-**If any rule conflicts with a new task, the agent must stop and ask for clarification before proceeding.**
+If any section is unclear or missing, please provide feedback so this guide can be improved for future AI agents.

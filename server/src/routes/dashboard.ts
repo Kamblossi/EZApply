@@ -1,4 +1,5 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import { Server as SocketIOServer, Socket } from 'socket.io';
 import { db } from '../db';
 import { requireAuth } from '../middleware/auth';
@@ -8,28 +9,34 @@ const router = express.Router();
 // Function to calculate dashboard metrics
 export async function getDashboardMetrics(userId: string) {
   try {
+    console.log('Calculating dashboard metrics for user:', userId);
+    
     // Get total jobs
     const jobsResult = await db.query(
       'SELECT COUNT(*) as total FROM jobs'
     );
+    console.log('Jobs query result:', jobsResult.rows[0]);
     
     // Get user's applications
     const applicationsResult = await db.query(
       'SELECT COUNT(*) as total FROM automation_runs WHERE user_id = $1',
       [userId]
     );
+    console.log('Applications query result:', applicationsResult.rows[0]);
     
     // Get successful applications
     const successfulResult = await db.query(
       'SELECT COUNT(*) as total FROM automation_runs WHERE user_id = $1 AND status = $2',
       [userId, 'success']
     );
+    console.log('Successful applications query result:', successfulResult.rows[0]);
     
     // Get running applications
     const runningResult = await db.query(
       'SELECT COUNT(*) as total FROM automation_runs WHERE user_id = $1 AND status IN ($2, $3)',
       [userId, 'pending', 'running']
     );
+    console.log('Running applications query result:', runningResult.rows[0]);
 
     const totalJobs = parseInt(jobsResult.rows[0].total);
     const totalApplications = parseInt(applicationsResult.rows[0].total);
@@ -40,7 +47,7 @@ export async function getDashboardMetrics(userId: string) {
       ? Math.round((successfulApplications / totalApplications) * 100) 
       : 0;
 
-    return {
+    const result = {
       totalJobs,
       totalApplications,
       successfulApplications,
@@ -48,6 +55,9 @@ export async function getDashboardMetrics(userId: string) {
       successRate,
       timestamp: new Date().toISOString()
     };
+    
+    console.log('Dashboard metrics calculated successfully:', result);
+    return result;
   } catch (error) {
     console.error('Error calculating dashboard metrics:', error);
     throw error;
@@ -58,14 +68,20 @@ export async function getDashboardMetrics(userId: string) {
 router.get('/metrics', requireAuth, async (req, res) => {
   try {
     const userId = req.user?.id;
+    console.log('Dashboard metrics request from user:', userId);
+    
     if (!userId) {
+      console.error('No user ID found in request');
       return res.status(401).json({ error: 'User not authenticated' });
     }
 
     const metrics = await getDashboardMetrics(userId);
+    console.log('Sending metrics response:', metrics);
     res.json(metrics);
   } catch (error) {
     console.error('Error getting dashboard metrics:', error);
+    console.error('Error details:', error instanceof Error ? error.message : String(error));
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     res.status(500).json({ error: 'Failed to get dashboard metrics' });
   }
 });
@@ -85,13 +101,16 @@ export function broadcastMetricsUpdate(io: SocketIOServer, userId: string) {
 export function setupDashboardWebSocket(io: SocketIOServer) {
   io.on('connection', (socket: Socket) => {
     console.log('Client connected to dashboard WebSocket');
+    
+    let authenticatedUserId: string | null = null;
 
     // Handle user authentication and room joining
     socket.on('authenticate', async (token: string) => {
       try {
-        // Here you would verify the JWT token
-        // For now, we'll assume the token contains the user ID
-        const userId = 'user-id-from-token'; // Replace with actual token verification
+        // Verify the JWT token
+        const payload = jwt.verify(token, process.env.JWT_SECRET as string) as { id: string; email: string };
+        const userId = payload.id;
+        authenticatedUserId = userId;
         
         socket.join(`user_${userId}`);
         
@@ -107,10 +126,14 @@ export function setupDashboardWebSocket(io: SocketIOServer) {
     });
 
     // Handle manual metrics refresh
-    socket.on('refresh_metrics', async (data: { userId: string }) => {
+    socket.on('refresh_metrics', async () => {
       try {
-        const userId = data.userId; // In production, get this from authenticated session
-        const metrics = await getDashboardMetrics(userId);
+        if (!authenticatedUserId) {
+          socket.emit('error', { message: 'Not authenticated' });
+          return;
+        }
+        
+        const metrics = await getDashboardMetrics(authenticatedUserId);
         socket.emit('metrics_update', metrics);
       } catch (error) {
         console.error('Error refreshing metrics:', error);
