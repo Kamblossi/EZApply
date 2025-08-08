@@ -95,12 +95,12 @@ export const DiscoverJobs: React.FC = () => {
     setError(null);
     
     try {
-      const response = await dataProvider.create({
-        resource: 'jobs/discover',
+      const response = await dataProvider().create({
+        resource: 'jobs/discover/advanced', // Updated to use Phase 3 advanced discovery
         variables: searchCriteria
       });
       
-      setSearchResults(response.data);
+      setSearchResults(response.data as SearchResults);
     } catch (err: any) {
       setError(err.message || 'Failed to search for jobs');
       console.error('Job search error:', err);
@@ -111,7 +111,7 @@ export const DiscoverJobs: React.FC = () => {
 
   const handleSaveJob = async (job: DiscoveredJob, createApplication = false) => {
     try {
-      await dataProvider.create({
+      await dataProvider().create({
         resource: 'jobs/discover/save',
         variables: {
           externalId: job.id,
