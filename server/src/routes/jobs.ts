@@ -4,9 +4,15 @@ import { db } from '../db';
 import { JobDTO, JobInsertSchema, JobStatusUpdateSchema } from '../validators/job'; // Import the new schema
 import { ApplicationDTO } from '../validators/application'; // Import ApplicationDTO for response validation
 import { JobUrlParserService, ParsedJobDataSchema } from '../services/jobUrlParser';
+import advancedJobDiscoveryRouter from './advancedJobDiscovery';
 import { z } from 'zod';
 
 const jobsRouter = Router();
+
+// =====================================================================
+// Mount advanced job discovery routes
+// =====================================================================
+jobsRouter.use('/', advancedJobDiscoveryRouter);
 
 // =====================================================================
 // POST /api/jobs/parse-url - Parse job URL to extract job details
