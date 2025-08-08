@@ -1,319 +1,408 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import {
   Box,
+  Paper,
   Typography,
-  Card,
-  CardContent,
-  Button,
-  Alert,
-  CircularProgress,
-  Grid,
   TextField,
+  Button,
+  Grid,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
   Chip,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  Switch,
-  FormControlLabel
+  Alert,
+  CircularProgress,
+  Card,
+  CardContent,
+  CardActions,
+  Link,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  IconButton,
+  Tooltip,
+  Divider
 } from '@mui/material';
 import {
   Search as SearchIcon,
-  ArrowBack as ArrowBackIcon,
-  Work as WorkIcon,
-  Settings as SettingsIcon
+  ExpandMore as ExpandMoreIcon,
+  Bookmark as BookmarkIcon,
+  BookmarkBorder as BookmarkBorderIcon,
+  Launch as LaunchIcon,
+  Business as BusinessIcon,
+  LocationOn as LocationIcon,
+  AttachMoney as SalaryIcon,
+  Schedule as DateIcon
 } from '@mui/icons-material';
+import { useDataProvider } from '@refinedev/core';
 
-interface DiscoveryPreferences {
-  platforms: string[];
-  jobTitles: string[];
-  locations: string[];
+interface JobSearchCriteria {
+  keywords: string;
+  location: string;
   salaryMin?: number;
   salaryMax?: number;
-  contractTypes: string[];
-  autoApply: boolean;
+  jobType?: string;
+  radius?: number;
 }
 
-export const DiscoverJobs = () => {
-  const navigate = useNavigate();
-  
-  const [preferences, setPreferences] = useState<DiscoveryPreferences>({
-    platforms: ['nhs-trac'],
-    jobTitles: [],
-    locations: [],
-    contractTypes: ['permanent'],
-    autoApply: false
-  });
-  
-  const [isDiscovering, setIsDiscovering] = useState(false);
-  const [discoveredJobs, setDiscoveredJobs] = useState<any[]>([]);
-  const [error, setError] = useState<string | null>(null);
+interface DiscoveredJob {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  salary?: string;
+  url: string;
+  description: string;
+  requirements?: string[];
+  postedDate?: string;
+  deadline?: string;
+  platform: string;
+  discoveredAt: string;
+  isApplied?: boolean;
+}
 
-  const availablePlatforms = [
-    { id: 'nhs-trac', name: 'NHS Trac', status: 'active' },
-    { id: 'nhs-jobs', name: 'NHS Jobs Beta', status: 'coming-soon' },
-    { id: 'workday', name: 'Workday', status: 'coming-soon' },
-    { id: 'greenhouse', name: 'Greenhouse', status: 'coming-soon' }
-  ];
-
-  const handleBack = () => {
-    navigate('/jobs');
+interface SearchResults {
+  searchId: string;
+  platforms: {
+    nhs: {
+      success: boolean;
+      totalFound: number;
+      jobs: DiscoveredJob[];
+    };
   };
+  totalJobs: number;
+  searchCriteria: JobSearchCriteria;
+}
 
-  const handleStartDiscovery = async () => {
-    setIsDiscovering(true);
+export const DiscoverJobs: React.FC = () => {
+  const dataProvider = useDataProvider();
+  const [searchCriteria, setSearchCriteria] = useState<JobSearchCriteria>({
+    keywords: '',
+    location: '',
+    salaryMin: undefined,
+    salaryMax: undefined,
+    jobType: '',
+    radius: 10
+  });
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [savedJobs, setSavedJobs] = useState<Set<string>>(new Set());
+
+  const handleSearch = async () => {
+    setIsLoading(true);
     setError(null);
     
     try {
-      // TODO: Implement actual job discovery API call
-      // For now, simulate the process
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      const response = await dataProvider.create({
+        resource: 'jobs/discover',
+        variables: searchCriteria
+      });
       
-      // Mock discovered jobs
-      setDiscoveredJobs([
-        {
-          id: '1',
-          title: 'Band 5 Staff Nurse - ICU',
-          company: 'NHS Foundation Trust',
-          location: 'London, UK',
-          platform: 'NHS Trac',
-          posted: '2 days ago'
-        }
-      ]);
-      
-    } catch (err) {
-      setError('Failed to discover jobs. Please try again.');
+      setSearchResults(response.data);
+    } catch (err: any) {
+      setError(err.message || 'Failed to search for jobs');
+      console.error('Job search error:', err);
     } finally {
-      setIsDiscovering(false);
+      setIsLoading(false);
     }
   };
 
-  const handlePlatformToggle = (platformId: string) => {
-    setPreferences(prev => ({
-      ...prev,
-      platforms: prev.platforms.includes(platformId)
-        ? prev.platforms.filter(p => p !== platformId)
-        : [...prev.platforms, platformId]
-    }));
+  const handleSaveJob = async (job: DiscoveredJob, createApplication = false) => {
+    try {
+      await dataProvider.create({
+        resource: 'jobs/discover/save',
+        variables: {
+          externalId: job.id,
+          platform: job.platform,
+          createApplication
+        }
+      });
+      
+      setSavedJobs(prev => new Set(prev).add(job.id));
+      
+      // Show success message
+      setError(null);
+    } catch (err: any) {
+      setError(err.message || 'Failed to save job');
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'Not specified';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const formatSalary = (salary?: string) => {
+    return salary || 'Salary not specified';
   };
 
   return (
-    <Box sx={{ maxWidth: 1000, mx: 'auto', p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={handleBack}
-          sx={{ mb: 2 }}
-        >
-          Back to Jobs
-        </Button>
-        
-        <Typography variant="h4" gutterBottom>
-          Discover Jobs
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom>
+        Discover Jobs
+      </Typography>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        Search for jobs across multiple platforms and save them to your job list.
+      </Typography>
+
+      {/* Search Form */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Typography variant="h6" gutterBottom>
+          Search Criteria
         </Typography>
         
-        <Typography variant="body1" color="text.secondary">
-          Automatically discover and scrape job postings from various job boards based on your preferences.
-        </Typography>
-      </Box>
-
-      <Grid container spacing={3}>
-        {/* Discovery Settings */}
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-                <SettingsIcon sx={{ mr: 1 }} />
-                <Typography variant="h6">Discovery Settings</Typography>
-              </Box>
-
-              {/* Platform Selection */}
-              <Typography variant="subtitle2" gutterBottom>
-                Job Platforms
-              </Typography>
-              <List dense sx={{ mb: 3 }}>
-                {availablePlatforms.map((platform) => (
-                  <ListItem key={platform.id} sx={{ px: 0 }}>
-                    <ListItemIcon>
-                      <Switch
-                        checked={preferences.platforms.includes(platform.id)}
-                        onChange={() => handlePlatformToggle(platform.id)}
-                        disabled={platform.status !== 'active'}
-                      />
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={platform.name}
-                      secondary={platform.status === 'active' ? 'Available' : 'Coming Soon'}
-                    />
-                    {platform.status === 'active' && (
-                      <Chip label="Active" color="success" size="small" />
-                    )}
-                  </ListItem>
-                ))}
-              </List>
-
-              <Divider sx={{ my: 2 }} />
-
-              {/* Search Criteria */}
-              <Typography variant="subtitle2" gutterBottom>
-                Search Criteria
-              </Typography>
-              
-              <TextField
-                fullWidth
-                label="Job Titles"
-                placeholder="e.g., Nurse, Software Engineer, Manager"
-                helperText="Comma-separated job titles to search for"
-                sx={{ mb: 2 }}
-              />
-              
-              <TextField
-                fullWidth
-                label="Locations"
-                placeholder="e.g., London, Manchester, Remote"
-                helperText="Comma-separated locations"
-                sx={{ mb: 2 }}
-              />
-
-              <Grid container spacing={2} sx={{ mb: 2 }}>
-                <Grid item xs={6}>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="Min Salary"
-                    placeholder="£25000"
-                  />
-                </Grid>
-                <Grid item xs={6}>
-                  <TextField
-                    fullWidth
-                    type="number"
-                    label="Max Salary"
-                    placeholder="£50000"
-                  />
-                </Grid>
-              </Grid>
-
-              <FormControl fullWidth sx={{ mb: 3 }}>
-                <InputLabel>Contract Type</InputLabel>
-                <Select
-                  multiple
-                  value={preferences.contractTypes}
-                  label="Contract Type"
-                  renderValue={(selected) => (
-                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                      {selected.map((value) => (
-                        <Chip key={value} label={value} size="small" />
-                      ))}
-                    </Box>
-                  )}
-                >
-                  <MenuItem value="permanent">Permanent</MenuItem>
-                  <MenuItem value="contract">Contract</MenuItem>
-                  <MenuItem value="temporary">Temporary</MenuItem>
-                  <MenuItem value="part-time">Part Time</MenuItem>
-                </Select>
-              </FormControl>
-
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={preferences.autoApply}
-                    onChange={(e) => setPreferences(prev => ({
-                      ...prev,
-                      autoApply: e.target.checked
-                    }))}
-                  />
-                }
-                label="Auto-apply to matching jobs"
-              />
-
-              {/* Start Discovery Button */}
-              <Button
-                fullWidth
-                variant="contained"
-                size="large"
-                startIcon={isDiscovering ? <CircularProgress size={20} /> : <SearchIcon />}
-                onClick={handleStartDiscovery}
-                disabled={isDiscovering || preferences.platforms.length === 0}
-                sx={{
-                  mt: 3,
-                  background: 'linear-gradient(45deg, #00b894 30%, #00cec9 90%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #019874 30%, #00b2a9 90%)',
-                  }
-                }}
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Keywords"
+              value={searchCriteria.keywords}
+              onChange={(e) => setSearchCriteria(prev => ({ ...prev, keywords: e.target.value }))}
+              placeholder="e.g., Nurse, Healthcare Assistant"
+            />
+          </Grid>
+          
+          <Grid item xs={12} md={6}>
+            <TextField
+              fullWidth
+              label="Location"
+              value={searchCriteria.location}
+              onChange={(e) => setSearchCriteria(prev => ({ ...prev, location: e.target.value }))}
+              placeholder="e.g., London, Manchester"
+            />
+          </Grid>
+          
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Minimum Salary (£)"
+              type="number"
+              value={searchCriteria.salaryMin || ''}
+              onChange={(e) => setSearchCriteria(prev => ({ 
+                ...prev, 
+                salaryMin: e.target.value ? parseInt(e.target.value) : undefined 
+              }))}
+            />
+          </Grid>
+          
+          <Grid item xs={12} md={4}>
+            <TextField
+              fullWidth
+              label="Maximum Salary (£)"
+              type="number"
+              value={searchCriteria.salaryMax || ''}
+              onChange={(e) => setSearchCriteria(prev => ({ 
+                ...prev, 
+                salaryMax: e.target.value ? parseInt(e.target.value) : undefined 
+              }))}
+            />
+          </Grid>
+          
+          <Grid item xs={12} md={4}>
+            <FormControl fullWidth>
+              <InputLabel>Job Type</InputLabel>
+              <Select
+                value={searchCriteria.jobType || ''}
+                label="Job Type"
+                onChange={(e) => setSearchCriteria(prev => ({ ...prev, jobType: e.target.value }))}
               >
-                {isDiscovering ? 'Discovering Jobs...' : 'Start Job Discovery'}
-              </Button>
-            </CardContent>
-          </Card>
+                <MenuItem value="">Any</MenuItem>
+                <MenuItem value="permanent">Permanent</MenuItem>
+                <MenuItem value="temporary">Temporary</MenuItem>
+                <MenuItem value="bank">Bank</MenuItem>
+                <MenuItem value="apprenticeship">Apprenticeship</MenuItem>
+              </Select>
+            </FormControl>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Button
+              variant="contained"
+              color="primary"
+              startIcon={isLoading ? <CircularProgress size={20} /> : <SearchIcon />}
+              onClick={handleSearch}
+              disabled={isLoading || !searchCriteria.keywords}
+              size="large"
+            >
+              {isLoading ? 'Searching...' : 'Search Jobs'}
+            </Button>
+          </Grid>
         </Grid>
+      </Paper>
 
-        {/* Discovery Results */}
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Discovery Results
-              </Typography>
+      {/* Error Message */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
 
-              {error && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                  {error}
-                </Alert>
-              )}
+      {/* Search Results */}
+      {searchResults && (
+        <Box>
+          <Typography variant="h6" gutterBottom>
+            Search Results
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Found {searchResults.totalJobs} jobs from NHS Trac
+          </Typography>
 
-              {isDiscovering ? (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <CircularProgress sx={{ mb: 2 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    Scanning job boards...
-                  </Typography>
-                </Box>
-              ) : discoveredJobs.length > 0 ? (
-                <List>
-                  {discoveredJobs.map((job) => (
-                    <ListItem key={job.id} divider>
-                      <ListItemIcon>
-                        <WorkIcon />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary={job.title}
-                        secondary={
-                          <Box>
-                            <Typography variant="body2" component="span">
-                              {job.company}
-                            </Typography>
-                            <br />
-                            <Typography variant="caption" color="text.secondary">
-                              {job.location} • {job.platform} • {job.posted}
-                            </Typography>
+          {/* NHS Results */}
+          {searchResults.platforms.nhs.success && searchResults.platforms.nhs.jobs.length > 0 ? (
+            <Grid container spacing={2}>
+              {searchResults.platforms.nhs.jobs.map((job) => (
+                <Grid item xs={12} key={job.id}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="h6" component="h3">
+                            {job.title}
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1, flexWrap: 'wrap' }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <BusinessIcon fontSize="small" color="action" />
+                              <Typography variant="body2" color="text.secondary">
+                                {job.company}
+                              </Typography>
+                            </Box>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                              <LocationIcon fontSize="small" color="action" />
+                              <Typography variant="body2" color="text.secondary">
+                                {job.location}
+                              </Typography>
+                            </Box>
+                            {job.salary && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                <SalaryIcon fontSize="small" color="action" />
+                                <Typography variant="body2" color="text.secondary">
+                                  {formatSalary(job.salary)}
+                                </Typography>
+                              </Box>
+                            )}
                           </Box>
-                        }
-                      />
-                    </ListItem>
-                  ))}
-                </List>
-              ) : (
-                <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <SearchIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    Start job discovery to see results here
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+                        </Box>
+                        <Chip 
+                          label="NHS" 
+                          color="primary" 
+                          size="small" 
+                          sx={{ ml: 2 }}
+                        />
+                      </Box>
+
+                      <Accordion>
+                        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                          <Typography variant="body2">View Details</Typography>
+                        </AccordionSummary>
+                        <AccordionDetails>
+                          <Box sx={{ mb: 2 }}>
+                            <Typography variant="body2" color="text.secondary" paragraph>
+                              {job.description}
+                            </Typography>
+                            
+                            {job.requirements && job.requirements.length > 0 && (
+                              <Box sx={{ mt: 2 }}>
+                                <Typography variant="subtitle2" gutterBottom>
+                                  Requirements:
+                                </Typography>
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                  {job.requirements.map((req, index) => (
+                                    <Chip key={index} label={req} size="small" variant="outlined" />
+                                  ))}
+                                </Box>
+                              </Box>
+                            )}
+                            
+                            <Divider sx={{ my: 2 }} />
+                            
+                            <Grid container spacing={2}>
+                              <Grid item xs={6}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <DateIcon fontSize="small" color="action" />
+                                  <Typography variant="body2" color="text.secondary">
+                                    Posted: {formatDate(job.postedDate)}
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                              <Grid item xs={6}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                  <DateIcon fontSize="small" color="action" />
+                                  <Typography variant="body2" color="text.secondary">
+                                    Deadline: {formatDate(job.deadline)}
+                                  </Typography>
+                                </Box>
+                              </Grid>
+                            </Grid>
+                          </Box>
+                        </AccordionDetails>
+                      </Accordion>
+                    </CardContent>
+                    
+                    <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
+                      <Box>
+                        <Tooltip title="Save to My Jobs">
+                          <IconButton
+                            onClick={() => handleSaveJob(job, false)}
+                            disabled={savedJobs.has(job.id)}
+                            color="primary"
+                          >
+                            {savedJobs.has(job.id) ? <BookmarkIcon /> : <BookmarkBorderIcon />}
+                          </IconButton>
+                        </Tooltip>
+                        <Button
+                          variant="outlined"
+                          onClick={() => handleSaveJob(job, true)}
+                          disabled={savedJobs.has(job.id)}
+                          sx={{ ml: 1 }}
+                        >
+                          Save & Apply
+                        </Button>
+                      </Box>
+                      
+                      <Button
+                        variant="contained"
+                        endIcon={<LaunchIcon />}
+                        component={Link}
+                        href={job.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View Job
+                      </Button>
+                    </CardActions>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          ) : (
+            <Alert severity="info" sx={{ mt: 2 }}>
+              No jobs found matching your search criteria. Try adjusting your keywords or location.
+            </Alert>
+          )}
+        </Box>
+      )}
+
+      {/* Help Section */}
+      {!searchResults && (
+        <Paper sx={{ p: 3, mt: 3, bgcolor: 'grey.50' }}>
+          <Typography variant="h6" gutterBottom>
+            Getting Started
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            1. Enter keywords related to the job you're looking for (e.g., "Nurse", "Healthcare Assistant")
+            <br />
+            2. Specify a location or leave blank to search all locations
+            <br />
+            3. Optionally set salary ranges and job type preferences
+            <br />
+            4. Click "Search Jobs" to discover opportunities from NHS Trac
+            <br />
+            5. Save interesting jobs to your personal job list or create applications directly
+          </Typography>
+        </Paper>
+      )}
     </Box>
   );
 };

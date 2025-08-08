@@ -18,6 +18,7 @@ import { referencesRouter } from './routes/references';
 import { documentsRouter } from './routes/documents';
 import { skillsRouter } from './routes/skills';
 import streamingRouter from './routes/streaming';
+import jobDiscoveryRouter from './routes/jobDiscovery';
 import uploadsRouter from './routes/uploads';
 import automationRouter from './routes/automation';
 import runsRouter from './routes/runs';
@@ -60,6 +61,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/me', meRouter);
 app.use('/api/profile', requireAuth, profileRouter);
 app.use('/api/jobs', requireAuth, jobsRouter);
+app.use('/api/jobs', jobDiscoveryRouter);
 app.use('/api/applications', requireAuth, applicationsRouter);
 
 // Granular sub-resource endpoints
