@@ -120,3 +120,15 @@ server/build/
 
 # Ignore local history folder
 .history/
+
+# AI Agent Instruction Files
+.blackboxrules
+.claude
+.cursorrules
+.cursor
+.copilot
+.ai
+.agent
+.instructions
+.kilocode/
+.github/instructions/

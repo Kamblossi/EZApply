@@ -25,6 +25,12 @@ export const dataProvider: DataProvider = {
   },
   
   getOne: async ({ resource, id }) => {
+    // Handle special profile resource
+    if (resource === "profile" && id === "me") {
+      const { data } = await http.get(`${API_URL}/profile`);
+      return { data: data.data || data };
+    }
+    
     const { data } = await http.get(`${API_URL}/${resource}/${id}`);
     return { data: data.data || data };
   },
@@ -35,6 +41,12 @@ export const dataProvider: DataProvider = {
   },
   
   update: async ({ resource, id, variables }) => {
+    // Handle special profile resource
+    if (resource === "profile" && id === "me") {
+      const { data } = await http.put(`${API_URL}/profile`, variables);
+      return { data: data.data || data };
+    }
+    
     const { data } = await http.put(`${API_URL}/${resource}/${id}`, variables);
     return { data: data.data || data };
   },
