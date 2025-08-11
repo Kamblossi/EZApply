@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Tabs, Tab, Typography } from '@mui/material';
+import { Box, Tabs, Tab } from '@mui/material';
 import { JobsList } from './JobsList';
 import { AddJob } from './AddJob';
 import { DiscoverJobs } from './DiscoverJobs';
@@ -40,7 +40,7 @@ function a11yProps(index: number) {
 export const JobsMain: React.FC = () => {
   const [value, setValue] = React.useState(0);
 
-  const handleChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleChange = (_event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue);
   };
 

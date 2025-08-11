@@ -26,12 +26,16 @@ import {
 
 export const JobsList = () => {
   const navigate = useNavigate();
-  const { dataGridProps, isLoading, error } = useDataGrid({ 
+  const { dataGridProps } = useDataGrid({ 
     resource: "jobs",
     pagination: { pageSize: 20 }
   });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
+
+  // Extract loading state from dataGridProps
+  const isLoading = dataGridProps.loading || false;
+  const hasError = !dataGridProps.rows || dataGridProps.rows.length === 0;
 
   const handleViewJob = (jobId: string) => {
     // Navigate to applications page with selected job for application wizard
@@ -83,7 +87,7 @@ export const JobsList = () => {
       width: 100,
       renderCell: (params) => (
         <Chip 
-          label={params.value} 
+          label={params.value || 'open'} 
           color={params.value === 'open' ? 'success' : 'default'}
           size="small"
         />
@@ -94,7 +98,7 @@ export const JobsList = () => {
       headerName: "Deadline", 
       type: "date", 
       width: 140,
-      valueGetter: (params) => params.value ? new Date(params.value) : null,
+      valueGetter: (value) => value ? new Date(value) : null,
       renderCell: (params) => params.value ? new Date(params.value).toLocaleDateString() : '-'
     },
     {
@@ -192,9 +196,9 @@ export const JobsList = () => {
       </Box>
       
       {/* Error State */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          Failed to load jobs: {error.message || 'Unknown error occurred'}
+      {hasError && !isLoading && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          No jobs found. Try adding some jobs or adjusting your search criteria.
         </Alert>
       )}
 
@@ -206,7 +210,7 @@ export const JobsList = () => {
       )}
       
       {/* Jobs Table - Full Width */}
-      {!isLoading && !error && (
+      {!isLoading && (
         <Box sx={{ height: 'calc(100vh - 200px)' }}>
           <DataGrid
             {...dataGridProps}

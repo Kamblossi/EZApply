@@ -25,10 +25,12 @@ export const dataProvider: DataProvider = {
     // Handle filters
     if (filters) {
       filters.forEach((filter) => {
-        if (filter.operator === 'contains') {
-          params.search = filter.value;
-        } else {
-          params[filter.field] = filter.value;
+        if ('field' in filter) {
+          if (filter.operator === 'contains') {
+            params.search = filter.value;
+          } else {
+            params[filter.field] = filter.value;
+          }
         }
       });
     }

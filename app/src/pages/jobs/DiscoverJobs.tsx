@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   Box,
   Paper,
@@ -35,7 +35,6 @@ import {
   AttachMoney as SalaryIcon,
   Schedule as DateIcon
 } from '@mui/icons-material';
-import { useDataProvider } from '@refinedev/core';
 
 interface JobSearchCriteria {
   keywords: string;
@@ -76,7 +75,6 @@ interface SearchResults {
 }
 
 export const DiscoverJobs: React.FC = () => {
-  const dataProvider = useDataProvider();
   const [searchCriteria, setSearchCriteria] = useState<JobSearchCriteria>({
     keywords: '',
     location: '',
