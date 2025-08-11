@@ -10,7 +10,10 @@ import {
   MenuItem, 
   ListItemIcon, 
   ListItemText,
-  Divider
+  Divider,
+  Chip,
+  Alert,
+  CircularProgress
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import { useState } from "react";
@@ -23,7 +26,10 @@ import {
 
 export const JobsList = () => {
   const navigate = useNavigate();
-  const { dataGridProps } = useDataGrid({ resource: "jobs" });
+  const { dataGridProps, isLoading, error } = useDataGrid({ 
+    resource: "jobs",
+    pagination: { pageSize: 20 }
+  });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
 
@@ -53,10 +59,44 @@ export const JobsList = () => {
   };
 
   const columns: GridColDef[] = [
-    { field: "title", headerName: "Job Title", flex: 1 },
-    { field: "employer", headerName: "Employer", flex: 1 },
-    { field: "location", headerName: "Location", flex: 0.8 },
-    { field: "deadline", headerName: "Deadline", type: "date", width: 140 },
+    { 
+      field: "title", 
+      headerName: "Job Title", 
+      flex: 1,
+      minWidth: 200
+    },
+    { 
+      field: "company", 
+      headerName: "Company", 
+      flex: 1,
+      minWidth: 150
+    },
+    { 
+      field: "location", 
+      headerName: "Location", 
+      flex: 0.8,
+      minWidth: 120
+    },
+    { 
+      field: "status", 
+      headerName: "Status", 
+      width: 100,
+      renderCell: (params) => (
+        <Chip 
+          label={params.value} 
+          color={params.value === 'open' ? 'success' : 'default'}
+          size="small"
+        />
+      )
+    },
+    { 
+      field: "deadline_date", 
+      headerName: "Deadline", 
+      type: "date", 
+      width: 140,
+      valueGetter: (params) => params.value ? new Date(params.value) : null,
+      renderCell: (params) => params.value ? new Date(params.value).toLocaleDateString() : '-'
+    },
     {
       field: "actions",
       type: "actions",
@@ -68,6 +108,7 @@ export const JobsList = () => {
           icon={<VisibilityIcon />}
           label="Apply for this job"
           onClick={() => handleViewJob(params.id as string)}
+          showInMenu
         />,
       ],
     },
@@ -150,26 +191,54 @@ export const JobsList = () => {
         </Box>
       </Box>
       
+      {/* Error State */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          Failed to load jobs: {error.message || 'Unknown error occurred'}
+        </Alert>
+      )}
+
+      {/* Loading State */}
+      {isLoading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress />
+        </Box>
+      )}
+      
       {/* Jobs Table - Full Width */}
-      <Box sx={{ height: 'calc(100vh - 200px)' }}>
-        <DataGrid
-          {...dataGridProps}
-          columns={columns}
-          slots={{ toolbar: GridToolbar }}
-          autoHeight={false}
-          density="comfortable"
-          disableRowSelectionOnClick={true}
-          sx={{
-            height: '100%',
-            '& .MuiDataGrid-row': {
-              cursor: 'pointer',
-              '&:hover': {
-                backgroundColor: 'action.hover',
+      {!isLoading && !error && (
+        <Box sx={{ height: 'calc(100vh - 200px)' }}>
+          <DataGrid
+            {...dataGridProps}
+            columns={columns}
+            slots={{ toolbar: GridToolbar }}
+            slotProps={{
+              toolbar: {
+                showQuickFilter: true,
+                quickFilterProps: { debounceMs: 500 },
               },
-            },
-          }}
-        />
-      </Box>
+            }}
+            autoHeight={false}
+            density="comfortable"
+            disableRowSelectionOnClick={true}
+            pageSizeOptions={[10, 20, 50]}
+            sx={{
+              height: '100%',
+              '& .MuiDataGrid-row': {
+                cursor: 'pointer',
+                '&:hover': {
+                  backgroundColor: 'action.hover',
+                },
+              },
+              '& .MuiDataGrid-toolbarContainer': {
+                borderBottom: '1px solid',
+                borderBottomColor: 'divider',
+                mb: 1
+              }
+            }}
+          />
+        </Box>
+      )}
     </Box>
   );
 };

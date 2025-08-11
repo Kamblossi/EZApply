@@ -95,12 +95,37 @@ export const DiscoverJobs: React.FC = () => {
     setError(null);
     
     try {
-      const response = await dataProvider().create({
-        resource: 'jobs/discover/advanced', // Updated to use Phase 3 advanced discovery
-        variables: searchCriteria
-      });
+      // Validate required fields
+      if (!searchCriteria.keywords.trim()) {
+        setError('Please enter job keywords to search');
+        return;
+      }
       
-      setSearchResults(response.data as SearchResults);
+      if (!searchCriteria.location.trim()) {
+        setError('Please enter a location to search');
+        return;
+      }
+
+      const response = await fetch('http://localhost:4000/api/jobs/discover/advanced', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('ez-token')}`
+        },
+        body: JSON.stringify(searchCriteria)
+      });
+
+      if (!response.ok) {
+        throw new Error(`Search failed: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.success) {
+        throw new Error(data.error || 'Search failed');
+      }
+      
+      setSearchResults(data as SearchResults);
     } catch (err: any) {
       setError(err.message || 'Failed to search for jobs');
       console.error('Job search error:', err);
@@ -111,21 +136,41 @@ export const DiscoverJobs: React.FC = () => {
 
   const handleSaveJob = async (job: DiscoveredJob, createApplication = false) => {
     try {
-      await dataProvider().create({
-        resource: 'jobs/discover/save',
-        variables: {
-          externalId: job.id,
-          platform: job.platform,
-          createApplication
-        }
+      // Use the regular jobs endpoint to add discovered job to user's tracker
+      const response = await fetch('http://localhost:4000/api/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('ez-token')}`
+        },
+        body: JSON.stringify({
+          title: job.title,
+          company: job.company,
+          location: job.location,
+          url: job.url,
+          description: job.description,
+          status: createApplication ? 'submitted' : 'draft'
+        })
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to save job');
+      }
+
+      const result = await response.json();
       
       setSavedJobs(prev => new Set(prev).add(job.id));
       
-      // Show success message
+      // Show success message and update UI
       setError(null);
+      
+      // Optional: Show success message
+      console.log('Job saved successfully:', result);
+      
     } catch (err: any) {
       setError(err.message || 'Failed to save job');
+      console.error('Save job error:', err);
     }
   };
 

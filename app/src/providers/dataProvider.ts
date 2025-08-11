@@ -14,14 +14,48 @@ http.interceptors.request.use((config) => {    // inject Bearer
 
 export const dataProvider: DataProvider = {
   getList: async ({ resource, pagination, filters, sorters }) => {
-    const { data } = await http.get(`${API_URL}/${resource}`, { 
-      params: { 
-        ...pagination,
-        ...filters,
-        ...sorters 
-      }
-    });
-    return { data: data.items || data.data || data, total: data.total || data.length || 0 };
+    const params: any = {};
+    
+    // Handle pagination
+    if (pagination) {
+      params.page = pagination.current || 1;
+      params.limit = pagination.pageSize || 20;
+    }
+    
+    // Handle filters
+    if (filters) {
+      filters.forEach((filter) => {
+        if (filter.operator === 'contains') {
+          params.search = filter.value;
+        } else {
+          params[filter.field] = filter.value;
+        }
+      });
+    }
+    
+    // Handle sorters
+    if (sorters && sorters.length > 0) {
+      const sorter = sorters[0];
+      params.sort = sorter.field;
+      params.order = sorter.order;
+    }
+
+    const { data } = await http.get(`${API_URL}/${resource}`, { params });
+    
+    // Handle different response structures
+    if (data.data && data.pagination) {
+      // New paginated structure from jobs endpoint
+      return { 
+        data: data.data, 
+        total: data.pagination.totalCount 
+      };
+    } else {
+      // Legacy structure
+      return { 
+        data: data.items || data.data || data, 
+        total: data.total || data.length || 0 
+      };
+    }
   },
   
   getOne: async ({ resource, id }) => {

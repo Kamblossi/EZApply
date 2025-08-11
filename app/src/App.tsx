@@ -12,6 +12,7 @@ import { ProfileEdit } from "./pages/auth/ProfileEdit";
 import { JobsList } from "./pages/jobs/JobsList";
 import { AddJob } from "./pages/jobs/AddJob";
 import { DiscoverJobs } from "./pages/jobs/DiscoverJobs";
+import { JobsMain } from "./pages/jobs/JobsMain";
 import { Dashboard } from "./pages/dashboard/Dashboard";
 import { ApplicationsList } from "./pages/applications/ApplicationsList";
 import { ApplicationWizard } from "./pages/applications/ApplicationWizard";
@@ -47,7 +48,8 @@ function App() {
             <Route index element={<Dashboard />} />
             <Route path="/profile" element={<ProfileEdit />} />
             <Route path="/profile/edit" element={<ProfileEdit />} />
-            <Route path="/jobs" element={<JobsList />} />
+            <Route path="/jobs" element={<JobsMain />} />
+            <Route path="/jobs/list" element={<JobsList />} />
             <Route path="/jobs/add" element={<AddJob />} />
             <Route path="/jobs/discover" element={<DiscoverJobs />} />
             <Route path="/applications" element={<ApplicationsList />} />
