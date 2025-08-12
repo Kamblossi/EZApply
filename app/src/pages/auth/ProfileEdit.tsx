@@ -302,13 +302,13 @@ const EmploymentTab = () => {
       field: "start_date",
       headerName: "From",
       width: 120,
-      valueFormatter: ({ value }) => value ? dayjs(value).format("MMM YYYY") : "",
+      valueFormatter: (value: any) => value ? dayjs(value).format("MMM YYYY") : "",
     },
     {
       field: "end_date",
       headerName: "To",
       width: 120,
-      valueFormatter: ({ value }) => value ? dayjs(value).format("MMM YYYY") : "Present",
+      valueFormatter: (value: any) => value ? dayjs(value).format("MMM YYYY") : "Present",
     },
     {
       type: "actions",
@@ -371,7 +371,14 @@ const EmploymentTab = () => {
           density="comfortable"
           disableRowSelectionOnClick
           hideFooter={rows.length <= 5}
-          sx={{ border: 'none' }}
+          sx={{ 
+            border: 'none',
+            minHeight: 200,
+            width: '100%',
+            '& .MuiDataGrid-main': {
+              minHeight: 200
+            }
+          }}
         />
         
         <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -407,7 +414,7 @@ const EducationTab = () => {
       field: "end_date",
       headerName: "Completed",
       width: 120,
-      valueFormatter: ({ value }) => value ? dayjs(value).format("MMM YYYY") : "",
+      valueFormatter: (value: any) => value ? dayjs(value).format("MMM YYYY") : "",
     },
     {
       type: "actions",
@@ -470,7 +477,14 @@ const EducationTab = () => {
           density="comfortable"
           disableRowSelectionOnClick
           hideFooter={rows.length <= 5}
-          sx={{ border: 'none' }}
+          sx={{ 
+            border: 'none',
+            minHeight: 200,
+            width: '100%',
+            '& .MuiDataGrid-main': {
+              minHeight: 200
+            }
+          }}
         />
         
         <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -565,7 +579,14 @@ const ReferencesTab = () => {
           density="comfortable"
           disableRowSelectionOnClick
           hideFooter={rows.length <= 5}
-          sx={{ border: 'none' }}
+          sx={{ 
+            border: 'none',
+            minHeight: 200,
+            width: '100%',
+            '& .MuiDataGrid-main': {
+              minHeight: 200
+            }
+          }}
         />
         
         <ReferenceForm
@@ -754,21 +775,29 @@ export const ProfileEdit = () => {
             </Tabs>
             
             <AnimatePresence mode="wait">
-              <TabPanel value={tab} index={0} key={0}>
-                <PersonalInfoTab />
-              </TabPanel>
+              {tab === 0 && (
+                <TabPanel value={tab} index={0} key={0}>
+                  <PersonalInfoTab />
+                </TabPanel>
+              )}
               
-              <TabPanel value={tab} index={1} key={1}>
-                <EmploymentTab />
-              </TabPanel>
+              {tab === 1 && (
+                <TabPanel value={tab} index={1} key={1}>
+                  <EmploymentTab />
+                </TabPanel>
+              )}
               
-              <TabPanel value={tab} index={2} key={2}>
-                <EducationTab />
-              </TabPanel>
+              {tab === 2 && (
+                <TabPanel value={tab} index={2} key={2}>
+                  <EducationTab />
+                </TabPanel>
+              )}
               
-              <TabPanel value={tab} index={3} key={3}>
-                <ReferencesTab />
-              </TabPanel>
+              {tab === 3 && (
+                <TabPanel value={tab} index={3} key={3}>
+                  <ReferencesTab />
+                </TabPanel>
+              )}
             </AnimatePresence>
           </Box>
         </motion.div>

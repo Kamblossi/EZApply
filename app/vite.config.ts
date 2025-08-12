@@ -13,6 +13,10 @@ export default defineConfig({
     port: 5173,
     strictPort: false, // Allow Vite to use alternative ports if 5173 is busy
     host: 'localhost',
+    hmr: {
+      port: 24678, // Use a specific port for HMR to avoid conflicts
+      host: 'localhost',
+    },
   },
   resolve: {
     alias: {
