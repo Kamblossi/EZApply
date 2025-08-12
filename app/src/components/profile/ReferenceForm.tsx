@@ -11,24 +11,13 @@ import {
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-
-const referenceSchema = z.object({
-  name: z.string().min(2, 'Reference name must be at least 2 characters'),
-  relationship: z.string().min(2, 'Relationship must be at least 2 characters'),
-  email: z.string().email("Invalid email format.").optional().nullable(),
-  phone: z.string().optional().nullable(),
-  company: z.string().optional().nullable(),
-  position: z.string().optional().nullable(),
-});
-
-type ReferenceFormData = z.infer<typeof referenceSchema>;
+import { referenceContactSchema, type ReferenceContact } from '../../validators/profile';
 
 interface ReferenceFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: ReferenceFormData) => Promise<void>;
-  initialData?: any;
+  onSubmit: (data: ReferenceContact) => void;
+  initialData?: ReferenceContact;
   isEdit?: boolean;
 }
 
@@ -44,9 +33,9 @@ export const ReferenceForm: React.FC<ReferenceFormProps> = ({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<ReferenceFormData>({
-    resolver: zodResolver(referenceSchema),
-    defaultValues: initialData || {
+  } = useForm<ReferenceContact>({
+    resolver: zodResolver(referenceContactSchema),
+    defaultValues: {
       name: '',
       relationship: '',
       email: '',
@@ -71,7 +60,7 @@ export const ReferenceForm: React.FC<ReferenceFormProps> = ({
     }
   }, [initialData, reset]);
 
-  const handleFormSubmit = async (data: ReferenceFormData) => {
+  const handleFormSubmit = async (data: ReferenceContact) => {
     await onSubmit(data);
     onClose();
   };

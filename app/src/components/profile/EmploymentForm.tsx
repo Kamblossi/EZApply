@@ -14,25 +14,13 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-
-const employmentSchema = z.object({
-  employer: z.string().min(2, 'Employer name must be at least 2 characters'),
-  position: z.string().min(2, 'Position must be at least 2 characters'),
-  start_date: z.coerce.date({ required_error: 'Start date is required' }),
-  end_date: z.coerce.date().nullable().optional(),
-  responsibilities: z.string().max(5000).optional(),
-  reason_for_leaving: z.string().max(1000).optional(),
-  salary_information: z.string().max(500).optional(),
-});
-
-type EmploymentFormData = z.infer<typeof employmentSchema>;
+import { employmentRecordSchema, type EmploymentRecord } from '../../validators/profile';
 
 interface EmploymentFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: EmploymentFormData) => Promise<void>;
-  initialData?: any;
+  onSubmit: (data: EmploymentRecord) => void;
+  initialData?: EmploymentRecord;
   isEdit?: boolean;
 }
 
@@ -48,12 +36,12 @@ export const EmploymentForm: React.FC<EmploymentFormProps> = ({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<EmploymentFormData>({
-    resolver: zodResolver(employmentSchema),
-    defaultValues: initialData || {
+  } = useForm<EmploymentRecord>({
+    resolver: zodResolver(employmentRecordSchema),
+    defaultValues: {
       employer: '',
       position: '',
-      start_date: null,
+      start_date: new Date(),
       end_date: null,
       responsibilities: '',
       reason_for_leaving: '',
@@ -65,14 +53,14 @@ export const EmploymentForm: React.FC<EmploymentFormProps> = ({
     if (initialData) {
       reset({
         ...initialData,
-        start_date: initialData.start_date ? new Date(initialData.start_date) : null,
+        start_date: initialData.start_date ? new Date(initialData.start_date) : new Date(),
         end_date: initialData.end_date ? new Date(initialData.end_date) : null,
       });
     } else {
       reset({
         employer: '',
         position: '',
-        start_date: null,
+        start_date: new Date(),
         end_date: null,
         responsibilities: '',
         reason_for_leaving: '',
@@ -81,7 +69,7 @@ export const EmploymentForm: React.FC<EmploymentFormProps> = ({
     }
   }, [initialData, reset]);
 
-  const handleFormSubmit = async (data: EmploymentFormData) => {
+  const handleFormSubmit = async (data: EmploymentRecord) => {
     await onSubmit(data);
     onClose();
   };

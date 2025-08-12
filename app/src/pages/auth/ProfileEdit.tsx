@@ -1,5 +1,5 @@
-import { Edit, useDataGrid } from "@refinedev/mui";
-import { useDataProvider, useInvalidate, useOne } from "@refinedev/core";
+import { Edit } from "@refinedev/mui";
+import { useDataProvider, useOne } from "@refinedev/core";
 import {
   Tabs,
   Tab,
@@ -14,6 +14,7 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  Grid,
 } from "@mui/material";
 import { DataGrid, GridActionsCellItem, GridColDef } from "@mui/x-data-grid";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
@@ -29,12 +30,14 @@ import EditIcon from "@mui/icons-material/ModeEditOutline";
 import AddIcon from "@mui/icons-material/Add";
 import SaveIcon from "@mui/icons-material/Save";
 import { motion, AnimatePresence } from "framer-motion";
-import { useForm, FormProvider, useWatch, useFormContext } from "react-hook-form";
+import { useForm, FormProvider, useWatch, useFormContext, Controller, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import dayjs from "dayjs";
 import React from "react";
 import { EmploymentForm } from "../../components/profile/EmploymentForm";
 import { EducationForm } from "../../components/profile/EducationForm";
 import { ReferenceForm } from "../../components/profile/ReferenceForm";
+import { completeProfileSchema, type CompleteProfile, type EmploymentRecord, type EducationRecord, type ReferenceContact } from "../../validators/profile";
 
 function TabPanel(props: { children?: React.ReactNode; index: number; value: number }) {
   const { children, value, index, ...other } = props;
@@ -51,6 +54,7 @@ function TabPanel(props: { children?: React.ReactNode; index: number; value: num
   );
 }
 
+// Avatar upload component
 const AvatarField = () => {
   const { setValue } = useFormContext();
   const file = useWatch({ name: "avatar" });
@@ -63,7 +67,7 @@ const AvatarField = () => {
   };
 
   return (
-    <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
+    <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
       <Avatar
         src={file ? URL.createObjectURL(file) : undefined}
         sx={{ width: 72, height: 72, border: '2px solid', borderColor: 'primary.main', boxShadow: 2 }}
@@ -86,19 +90,214 @@ const AvatarField = () => {
   );
 };
 
-const EmploymentTable = () => {
-  const dataProvider = useDataProvider();
-  const invalidate = useInvalidate();
+// Enhanced Personal Information Tab with Controller
+const PersonalInfoTab = () => {
+  const { control, formState: { errors } } = useFormContext<CompleteProfile>();
+
+  return (
+    <Paper elevation={1} sx={{ p: 3, borderRadius: 3 }}>
+      <AvatarField />
+      
+      <Grid container spacing={2}>
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="forename"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Forename"
+                fullWidth
+                variant="outlined"
+                error={!!errors.forename}
+                helperText={errors.forename?.message}
+                required
+              />
+            )}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="surname"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Surname"
+                fullWidth
+                variant="outlined"
+                error={!!errors.surname}
+                helperText={errors.surname?.message}
+                required
+              />
+            )}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="mobile_phone"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Mobile Phone"
+                fullWidth
+                variant="outlined"
+                type="tel"
+                error={!!errors.mobile_phone}
+                helperText={errors.mobile_phone?.message}
+              />
+            )}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <Controller
+            name="dob"
+            control={control}
+            render={({ field }) => (
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Date of Birth"
+                  value={field.value}
+                  onChange={field.onChange}
+                  slotProps={{ 
+                    textField: { 
+                      fullWidth: true, 
+                      variant: "outlined",
+                      error: !!errors.dob,
+                      helperText: errors.dob?.message
+                    } 
+                  }}
+                />
+              </LocalizationProvider>
+            )}
+          />
+        </Grid>
+      </Grid>
+
+      <Divider sx={{ my: 3 }} />
+      
+      <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
+        Address Information
+      </Typography>
+      
+      <Grid container spacing={2}>
+        <Grid item xs={12}>
+          <Controller
+            name="address_line_1"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Address Line 1"
+                fullWidth
+                variant="outlined"
+                error={!!errors.address_line_1}
+                helperText={errors.address_line_1?.message}
+              />
+            )}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <Controller
+            name="address_line_2"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Address Line 2"
+                fullWidth
+                variant="outlined"
+                error={!!errors.address_line_2}
+                helperText={errors.address_line_2?.message}
+              />
+            )}
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Controller
+            name="city"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="City"
+                fullWidth
+                variant="outlined"
+                error={!!errors.city}
+                helperText={errors.city?.message}
+              />
+            )}
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Controller
+            name="county"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="County"
+                fullWidth
+                variant="outlined"
+                error={!!errors.county}
+                helperText={errors.county?.message}
+              />
+            )}
+          />
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Controller
+            name="postcode"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Postcode"
+                fullWidth
+                variant="outlined"
+                error={!!errors.postcode}
+                helperText={errors.postcode?.message}
+              />
+            )}
+          />
+        </Grid>
+        <Grid item xs={12}>
+          <Controller
+            name="country"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Country"
+                fullWidth
+                variant="outlined"
+                placeholder="e.g., United Kingdom"
+                error={!!errors.country}
+                helperText={errors.country?.message}
+              />
+            )}
+          />
+        </Grid>
+      </Grid>
+    </Paper>
+  );
+};
+
+// Employment Tab using useFieldArray
+const EmploymentTab = () => {
+  const { control } = useFormContext<CompleteProfile>();
   const [openDialog, setOpenDialog] = React.useState(false);
-  const [editingRecord, setEditingRecord] = React.useState<any>(null);
-  const { dataGridProps } = useDataGrid({
-    resource: "profile/employment",
-    pagination: { pageSize: 5 },
+  const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
+
+  const { fields, append, remove, update } = useFieldArray({
+    control,
+    name: "employment_records",
   });
 
   const columns: GridColDef[] = [
-    { field: "employer", headerName: "Organisation", flex: 1 },
-    { field: "position", headerName: "Role/Title", flex: 1 },
+    { field: "employer", headerName: "Company", flex: 1 },
+    { field: "position", headerName: "Position", flex: 1 },
     {
       field: "start_date",
       headerName: "From",
@@ -122,7 +321,7 @@ const EmploymentTable = () => {
           icon={<EditIcon />}
           label="Edit"
           onClick={() => {
-            setEditingRecord(params.row);
+            setEditingIndex(params.row.index);
             setOpenDialog(true);
           }}
         />,
@@ -130,92 +329,58 @@ const EmploymentTable = () => {
           key="delete"
           icon={<DeleteIcon />}
           label="Delete"
-          onClick={async () => {
-            try {
-              await dataProvider().deleteOne({
-                resource: "profile/employment",
-                id: params.id,
-              });
-              invalidate({
-                resource: "profile/employment",
-                invalidates: ["list"]
-              });
-            } catch (error) {
-              console.error("Delete failed:", error);
-            }
-          }}
+          onClick={() => remove(params.row.index)}
         />,
       ],
     },
   ];
 
-  const handleAddEmployment = () => {
-    setEditingRecord(null);
+  const handleAddNew = () => {
+    setEditingIndex(null);
     setOpenDialog(true);
   };
 
-  const handleEmploymentSubmit = async (data: any) => {
-    try {
-      if (editingRecord) {
-        // Update existing record
-        await dataProvider().update({
-          resource: "profile/employment",
-          id: editingRecord.id,
-          variables: data,
-        });
-        
-        // Refresh data grid
-        invalidate({
-          resource: "profile/employment",
-          invalidates: ["list"]
-        });
-      } else {
-        // Create new record
-        await dataProvider().create({
-          resource: "profile/employment",
-          variables: data,
-        });
-        
-        // Refresh data grid
-        invalidate({
-          resource: "profile/employment",
-          invalidates: ["list"]
-        });
-      }
-      
-      // Refresh data grid
-      invalidate({
-        resource: "profile/employment",
-        invalidates: ["list"]
-      });
-      
-      setOpenDialog(false);
-    } catch (error) {
-      console.error("Error saving employment record:", error);
+  const handleSubmit = (data: EmploymentRecord) => {
+    if (editingIndex !== null) {
+      update(editingIndex, data);
+    } else {
+      append(data);
     }
+    setOpenDialog(false);
+    setEditingIndex(null);
   };
+
+  const rows = fields.map((field, index) => ({ ...field, index }));
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       <Paper elevation={1} sx={{ p: 2, borderRadius: 3 }}>
-        <Button startIcon={<AddIcon />} variant="contained" sx={{ mb: 2 }} onClick={handleAddEmployment}>
+        <Button 
+          startIcon={<AddIcon />} 
+          variant="contained" 
+          sx={{ mb: 2 }} 
+          onClick={handleAddNew}
+        >
           Add Employment
         </Button>
+        
         <DataGrid
-          {...dataGridProps}
+          rows={rows}
           columns={columns}
           autoHeight
           density="comfortable"
           disableRowSelectionOnClick
+          hideFooter={rows.length <= 5}
+          sx={{ border: 'none' }}
         />
         
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <EmploymentForm
             open={openDialog}
             onClose={() => setOpenDialog(false)}
-            onSubmit={handleEmploymentSubmit}
-            initialData={editingRecord}
-            isEdit={!!editingRecord}
+            onSubmit={handleSubmit}
+            initialData={editingIndex !== null ? fields[editingIndex] : undefined}
+            isEdit={editingIndex !== null}
           />
         </LocalizationProvider>
       </Paper>
@@ -223,14 +388,15 @@ const EmploymentTable = () => {
   );
 };
 
-const EducationTable = () => {
-  const dataProvider = useDataProvider();
-  const invalidate = useInvalidate();
+// Education Tab using useFieldArray
+const EducationTab = () => {
+  const { control } = useFormContext<CompleteProfile>();
   const [openDialog, setOpenDialog] = React.useState(false);
-  const [editingRecord, setEditingRecord] = React.useState<any>(null);
-  const { dataGridProps } = useDataGrid({
-    resource: "profile/education",
-    pagination: { pageSize: 5 },
+  const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
+
+  const { fields, append, remove, update } = useFieldArray({
+    control,
+    name: "education_records",
   });
 
   const columns: GridColDef[] = [
@@ -238,8 +404,8 @@ const EducationTable = () => {
     { field: "degree_diploma", headerName: "Degree", flex: 1 },
     { field: "grade_score", headerName: "Grade", width: 120 },
     {
-      field: "graduation_date",
-      headerName: "Graduated",
+      field: "end_date",
+      headerName: "Completed",
       width: 120,
       valueFormatter: ({ value }) => value ? dayjs(value).format("MMM YYYY") : "",
     },
@@ -254,7 +420,7 @@ const EducationTable = () => {
           icon={<EditIcon />}
           label="Edit"
           onClick={() => {
-            setEditingRecord(params.row);
+            setEditingIndex(params.row.index);
             setOpenDialog(true);
           }}
         />,
@@ -262,93 +428,58 @@ const EducationTable = () => {
           key="delete"
           icon={<DeleteIcon />}
           label="Delete"
-          onClick={async () => {
-            try {
-              await dataProvider().deleteOne({
-                resource: "profile/education",
-                id: params.id,
-              });
-              invalidate({
-                resource: "profile/education",
-                invalidates: ["list"]
-              });
-            } catch (error) {
-              console.error("Delete failed:", error);
-            }
-          }}
+          onClick={() => remove(params.row.index)}
         />,
       ],
     },
   ];
 
-  const handleAddEducation = () => {
-    setEditingRecord(null);
+  const handleAddNew = () => {
+    setEditingIndex(null);
     setOpenDialog(true);
   };
 
-  const handleEducationSubmit = async (data: any) => {
-    try {
-      if (editingRecord) {
-        // Update existing record
-        await dataProvider().update({
-          resource: "profile/education",
-          id: editingRecord.id,
-          variables: data,
-        });
-        
-        // Refresh data grid
-        invalidate({
-          resource: "profile/education",
-          invalidates: ["list"]
-        });
-      } else {
-        // Create new record
-        await dataProvider().create({
-          resource: "profile/education",
-          variables: data,
-        });
-        
-        // Refresh data grid
-        invalidate({
-          resource: "profile/education",
-          invalidates: ["list"]
-        });
-      }
-      
-      // Refresh data grid
-      invalidate({
-        resource: "profile/education",
-        invalidates: ["list"]
-      });
-      
-      setOpenDialog(false);
-    } catch (error) {
-      console.error("Error saving education record:", error);
+  const handleSubmit = (data: EducationRecord) => {
+    if (editingIndex !== null) {
+      update(editingIndex, data);
+    } else {
+      append(data);
     }
+    setOpenDialog(false);
+    setEditingIndex(null);
   };
 
+  const rows = fields.map((field, index) => ({ ...field, index }));
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       <Paper elevation={1} sx={{ p: 2, borderRadius: 3 }}>
-        <Button startIcon={<AddIcon />} variant="contained" sx={{ mb: 2 }} onClick={handleAddEducation}>
+        <Button 
+          startIcon={<AddIcon />} 
+          variant="contained" 
+          sx={{ mb: 2 }} 
+          onClick={handleAddNew}
+        >
           Add Education
         </Button>
+        
         <DataGrid
-          {...dataGridProps}
+          rows={rows}
           columns={columns}
           autoHeight
           density="comfortable"
           disableRowSelectionOnClick
+          hideFooter={rows.length <= 5}
+          sx={{ border: 'none' }}
         />
         
         <LocalizationProvider dateAdapter={AdapterDateFns}>
           <EducationForm
             open={openDialog}
             onClose={() => setOpenDialog(false)}
-            onSubmit={handleEducationSubmit}
-            initialData={editingRecord}
-            isEdit={!!editingRecord}
+            onSubmit={handleSubmit}
+            initialData={editingIndex !== null ? fields[editingIndex] : undefined}
+            isEdit={editingIndex !== null}
           />
         </LocalizationProvider>
       </Paper>
@@ -356,19 +487,20 @@ const EducationTable = () => {
   );
 };
 
-const ReferencesTable = () => {
-  const dataProvider = useDataProvider();
-  const invalidate = useInvalidate();
+// References Tab using useFieldArray
+const ReferencesTab = () => {
+  const { control } = useFormContext<CompleteProfile>();
   const [openDialog, setOpenDialog] = React.useState(false);
-  const [editingRecord, setEditingRecord] = React.useState<any>(null);
-  const { dataGridProps } = useDataGrid({
-    resource: "profile/references",
-    pagination: { pageSize: 5 },
+  const [editingIndex, setEditingIndex] = React.useState<number | null>(null);
+
+  const { fields, append, remove, update } = useFieldArray({
+    control,
+    name: "reference_contacts",
   });
 
   const columns: GridColDef[] = [
     { field: "name", headerName: "Name", flex: 1 },
-    { field: "position", headerName: "Job Title", flex: 1 },
+    { field: "position", headerName: "Position", flex: 1 },
     { field: "company", headerName: "Company", flex: 1 },
     { field: "email", headerName: "Email", flex: 1 },
     { field: "phone", headerName: "Phone", width: 150 },
@@ -383,7 +515,7 @@ const ReferencesTable = () => {
           icon={<EditIcon />}
           label="Edit"
           onClick={() => {
-            setEditingRecord(params.row);
+            setEditingIndex(params.row.index);
             setOpenDialog(true);
           }}
         />,
@@ -391,86 +523,57 @@ const ReferencesTable = () => {
           key="delete"
           icon={<DeleteIcon />}
           label="Delete"
-          onClick={async () => {
-            try {
-              await dataProvider().deleteOne({
-                resource: "profile/references",
-                id: params.id,
-              });
-              invalidate({
-                resource: "profile/references",
-                invalidates: ["list"]
-              });
-            } catch (error) {
-              console.error("Delete failed:", error);
-            }
-          }}
+          onClick={() => remove(params.row.index)}
         />,
       ],
     },
   ];
 
-  const handleAddReference = () => {
-    setEditingRecord(null);
+  const handleAddNew = () => {
+    setEditingIndex(null);
     setOpenDialog(true);
   };
 
-  const handleReferenceSubmit = async (data: any) => {
-    try {
-      if (editingRecord) {
-        // Update existing record
-        await dataProvider().update({
-          resource: "profile/references",
-          id: editingRecord.id,
-          variables: data,
-        });
-        
-        // Refresh data grid
-        invalidate({
-          resource: "profile/references",
-          invalidates: ["list"]
-        });
-      } else {
-        // Create new record
-        await dataProvider().create({
-          resource: "profile/references",
-          variables: data,
-        });
-        
-        // Refresh data grid
-        invalidate({
-          resource: "profile/references",
-          invalidates: ["list"]
-        });
-      }
-      
-      setOpenDialog(false);
-    } catch (error) {
-      console.error("Error saving reference record:", error);
+  const handleSubmit = (data: ReferenceContact) => {
+    if (editingIndex !== null) {
+      update(editingIndex, data);
+    } else {
+      append(data);
     }
+    setOpenDialog(false);
+    setEditingIndex(null);
   };
 
+  const rows = fields.map((field, index) => ({ ...field, index }));
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       <Paper elevation={1} sx={{ p: 2, borderRadius: 3 }}>
-        <Button startIcon={<AddIcon />} variant="contained" sx={{ mb: 2 }} onClick={handleAddReference}>
+        <Button 
+          startIcon={<AddIcon />} 
+          variant="contained" 
+          sx={{ mb: 2 }} 
+          onClick={handleAddNew}
+        >
           Add Reference
         </Button>
+        
         <DataGrid
-          {...dataGridProps}
+          rows={rows}
           columns={columns}
           autoHeight
           density="comfortable"
           disableRowSelectionOnClick
+          hideFooter={rows.length <= 5}
+          sx={{ border: 'none' }}
         />
         
         <ReferenceForm
           open={openDialog}
           onClose={() => setOpenDialog(false)}
-          onSubmit={handleReferenceSubmit}
-          initialData={editingRecord}
-          isEdit={!!editingRecord}
+          onSubmit={handleSubmit}
+          initialData={editingIndex !== null ? fields[editingIndex] : undefined}
+          isEdit={editingIndex !== null}
         />
       </Paper>
     </motion.div>
@@ -485,70 +588,79 @@ export const ProfileEdit = () => {
   // Load profile data
   const { data: profileData, isLoading: isLoadingProfile, refetch } = useOne({
     resource: "profile",
-    id: "me", // We use a special ID since profile is user-specific
+    id: "me",
   });
 
-  // Initialize form with default values and loaded data
-  const methods = useForm({ 
-    defaultValues: { 
-      forename: '', 
-      surname: '', 
+  // Initialize form with Zod validation and useFieldArray
+  const methods = useForm<CompleteProfile>({
+    resolver: zodResolver(completeProfileSchema),
+    defaultValues: {
+      forename: '',
+      surname: '',
       mobile_phone: '',
+      dob: null,
       address_line_1: '',
       address_line_2: '',
       city: '',
       county: '',
       country: '',
       postcode: '',
-      dob: null as Date | null, 
-      avatar: null 
+      avatar: null,
+      employment_records: [],
+      education_records: [],
+      reference_contacts: [],
     },
     values: profileData?.data ? {
       forename: profileData.data.forename || '',
       surname: profileData.data.surname || '',
       mobile_phone: profileData.data.mobile_phone || '',
+      dob: profileData.data.available_date ? new Date(profileData.data.available_date) : null,
       address_line_1: profileData.data.address_line_1 || '',
       address_line_2: profileData.data.address_line_2 || '',
       city: profileData.data.city || '',
       county: profileData.data.county || '',
       country: profileData.data.country || '',
       postcode: profileData.data.postcode || '',
-      dob: profileData.data.available_date ? new Date(profileData.data.available_date) : null,
-      avatar: null
+      avatar: null,
+      employment_records: profileData.data.employment_records || [],
+      education_records: profileData.data.education_records || [],
+      reference_contacts: profileData.data.reference_contacts || [],
     } : undefined
   });
 
-  const { register, setValue, control, handleSubmit } = methods;
-  const dob = useWatch({ name: "dob", control });
-
+  const { handleSubmit } = methods;
   const dataProvider = useDataProvider();
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setTab(newValue);
   };
 
-  // Save profile data
-  const onSubmit = async (data: any) => {
+  // Save the entire profile as one atomic transaction
+  const onSubmit = async (data: CompleteProfile) => {
     setIsSaving(true);
     setSaveMessage(null);
 
-    
-        try {
-          const profilePayload = {
-            forename: data.forename,
-            surname: data.surname,
-            mobile_phone: data.mobile_phone,
-            address_line_1: data.address_line_1,
-            address_line_2: data.address_line_2,
-            city: data.city,
-            county: data.county,
-            country: data.country,
-            postcode: data.postcode,
-            available_date: data.dob ? data.dob.toISOString() : null,
-            // Include related data in the payload
-            user_documents: [],
-            user_skills: []
-          };
+    try {
+      const profilePayload = {
+        ...data,
+        available_date: data.dob ? data.dob.toISOString() : null,
+        // Convert employment_records dates to ISO strings
+        employment_records: data.employment_records.map(record => ({
+          ...record,
+          start_date: record.start_date ? record.start_date.toISOString() : null,
+          end_date: record.end_date ? record.end_date.toISOString() : null,
+        })),
+        // Convert education_records dates to ISO strings
+        education_records: data.education_records.map(record => ({
+          ...record,
+          start_date: record.start_date ? record.start_date.toISOString() : null,
+          end_date: record.end_date ? record.end_date.toISOString() : null,
+        })),
+        // Ensure we include other required fields
+        user_documents: [],
+        user_skills: []
+      };
+
       await dataProvider().update({
         resource: "profile",
         id: "me",
@@ -556,7 +668,7 @@ export const ProfileEdit = () => {
       });
 
       setSaveMessage({ type: 'success', text: 'Profile saved successfully!' });
-      refetch(); // Refresh the profile data
+      refetch();
     } catch (error: any) {
       console.error('Profile save error:', error);
       setSaveMessage({ 
@@ -581,7 +693,7 @@ export const ProfileEdit = () => {
       <Edit 
         title={<Typography variant="h5" sx={{ fontWeight: 700, mb: 2 }}>My Profile</Typography>}
         saveButtonProps={{
-          onClick: handleSubmit(onSubmit),
+          onClick: handleSubmit(onSubmit as any),
           disabled: isSaving,
           startIcon: isSaving ? <CircularProgress size={20} /> : <SaveIcon />,
           children: isSaving ? 'Saving...' : 'Save Profile'
@@ -643,112 +755,19 @@ export const ProfileEdit = () => {
             
             <AnimatePresence mode="wait">
               <TabPanel value={tab} index={0} key={0}>
-                <Paper elevation={1} sx={{ p: 3, borderRadius: 3 }}>
-                  <AvatarField />
-                  
-                  <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
-                    <TextField 
-                      {...register("forename")} 
-                      label="Forename" 
-                      fullWidth 
-                      variant="outlined"
-                    />
-                    <TextField 
-                      {...register("surname")} 
-                      label="Surname" 
-                      fullWidth 
-                      variant="outlined"
-                    />
-                    <TextField 
-                      {...register("mobile_phone")} 
-                      label="Mobile Phone" 
-                      fullWidth 
-                      variant="outlined"
-                      type="tel"
-                    />
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-                      <DatePicker
-                        label="Date of Birth"
-                        value={dob || null}
-                        onChange={(date: Date | null) => setValue("dob", date)}
-                        slotProps={{ textField: { fullWidth: true, variant: "outlined" } }}
-                      />
-                    </LocalizationProvider>
-                  </Box>
-
-                  <Divider sx={{ my: 3 }} />
-                  
-                  <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-                    Address Information
-                  </Typography>
-                  
-                  <Box sx={{ display: 'grid', gap: 2 }}>
-                    <TextField 
-                      {...register("address_line_1")} 
-                      label="Address Line 1" 
-                      fullWidth 
-                      variant="outlined"
-                    />
-                    <TextField 
-                      {...register("address_line_2")} 
-                      label="Address Line 2" 
-                      fullWidth 
-                      variant="outlined"
-                    />
-                    <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' } }}>
-                      <TextField 
-                        {...register("city")} 
-                        label="City" 
-                        fullWidth 
-                        variant="outlined"
-                      />
-                      <TextField 
-                        {...register("county")} 
-                        label="County" 
-                        fullWidth 
-                        variant="outlined"
-                      />
-                      <TextField 
-                        {...register("postcode")} 
-                        label="Postcode" 
-                        fullWidth 
-                        variant="outlined"
-                      />
-                    </Box>
-                    <TextField 
-                      {...register("country")} 
-                      label="Country" 
-                      fullWidth 
-                      variant="outlined"
-                      placeholder="e.g., United Kingdom"
-                    />
-                  </Box>
-
-                  {/* Save Button for Personal Tab */}
-                  <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                      variant="contained"
-                      startIcon={isSaving ? <CircularProgress size={20} /> : <SaveIcon />}
-                      onClick={handleSubmit(onSubmit)}
-                      disabled={isSaving}
-                      size="large"
-                    >
-                      {isSaving ? 'Saving...' : 'Save Personal Information'}
-                    </Button>
-                  </Box>
-                </Paper>
+                <PersonalInfoTab />
               </TabPanel>
               
               <TabPanel value={tab} index={1} key={1}>
-                <EmploymentTable />
+                <EmploymentTab />
               </TabPanel>
               
               <TabPanel value={tab} index={2} key={2}>
-                <EducationTable />
+                <EducationTab />
               </TabPanel>
               
               <TabPanel value={tab} index={3} key={3}>
-                <ReferencesTable />
+                <ReferencesTab />
               </TabPanel>
             </AnimatePresence>
           </Box>

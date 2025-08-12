@@ -7,8 +7,8 @@
 -- Purpose: Track job alert execution history and results
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS job_alert_executions (
-    id VARCHAR(21) PRIMARY KEY,
-    alert_id VARCHAR(21) NOT NULL REFERENCES saved_job_alerts(id) ON DELETE CASCADE,
+    id VARCHAR(50) PRIMARY KEY,
+    alert_id VARCHAR(50) NOT NULL REFERENCES saved_job_alerts(id) ON DELETE CASCADE,
     executed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     jobs_found INTEGER DEFAULT 0,
     new_jobs INTEGER DEFAULT 0,
@@ -28,7 +28,7 @@ CREATE INDEX IF NOT EXISTS idx_job_alert_executions_status ON job_alert_executio
 -- Purpose: Store user preferences for intelligent job matching
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS job_matching_profiles (
-    id VARCHAR(21) PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     preferred_job_titles TEXT[],
     skills TEXT[],
@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_job_matching_profiles_is_active ON job_matching_p
 -- Purpose: Enhanced application tracking with external platform sync
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS job_applications_tracking (
-    id VARCHAR(21) PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     job_id UUID REFERENCES jobs(id), -- Changed to UUID to match jobs table
     external_job_id VARCHAR(255), -- For tracking jobs from external platforms
@@ -94,7 +94,7 @@ CREATE INDEX IF NOT EXISTS idx_job_applications_tracking_next_action_date ON job
 -- Purpose: Store calculated job matching scores for recommendations
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS job_matching_scores (
-    id VARCHAR(21) PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     job_external_id VARCHAR(255) NOT NULL,
     platform VARCHAR(50) NOT NULL,
@@ -121,7 +121,7 @@ CREATE INDEX IF NOT EXISTS idx_job_matching_scores_calculated_at ON job_matching
 -- Purpose: Track synchronization status with external job platforms
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS platform_sync_status (
-    id VARCHAR(21) PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY,
     platform VARCHAR(50) NOT NULL,
     last_sync_at TIMESTAMP WITH TIME ZONE,
     sync_status VARCHAR(20) DEFAULT 'idle', -- idle, running, success, error

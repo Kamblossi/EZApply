@@ -1,7 +1,7 @@
 -- Create automation_runs table to track Playwright automation executions
 
 CREATE TABLE IF NOT EXISTS automation_runs (
-    id VARCHAR(21) PRIMARY KEY, -- nanoid for unique run identification
+    id VARCHAR(50) PRIMARY KEY, -- nanoid for unique run identification
     job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'success', 'failed')),
@@ -30,7 +30,7 @@ CREATE INDEX IF NOT EXISTS idx_automation_runs_created_at ON automation_runs(cre
 -- Create automation_logs table for streaming logs during execution
 CREATE TABLE IF NOT EXISTS automation_logs (
     id BIGSERIAL PRIMARY KEY,
-    run_id VARCHAR(21) NOT NULL REFERENCES automation_runs(id) ON DELETE CASCADE,
+    run_id VARCHAR(50) NOT NULL REFERENCES automation_runs(id) ON DELETE CASCADE,
     step_number INTEGER NOT NULL,
     step_type VARCHAR(50) NOT NULL, -- 'navigation', 'form_fill', 'submit', 'validation', 'screenshot', 'error'
     message TEXT NOT NULL,

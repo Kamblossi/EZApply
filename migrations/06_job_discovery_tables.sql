@@ -7,7 +7,7 @@
 -- Purpose: Track user search history and criteria
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS job_searches (
-    id VARCHAR(21) PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     search_criteria JSONB NOT NULL,
     results_count INTEGER DEFAULT 0,
@@ -26,8 +26,8 @@ CREATE INDEX IF NOT EXISTS idx_job_searches_created_at ON job_searches(created_a
 -- Purpose: Cache discovered jobs from various platforms
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS discovered_jobs (
-    id VARCHAR(21) PRIMARY KEY DEFAULT '',
-    search_id VARCHAR(21) NOT NULL REFERENCES job_searches(id) ON DELETE CASCADE,
+    id VARCHAR(50) PRIMARY KEY DEFAULT '',
+    search_id VARCHAR(50) NOT NULL REFERENCES job_searches(id) ON DELETE CASCADE,
     platform VARCHAR(50) NOT NULL,
     external_id VARCHAR(255) NOT NULL,
     title VARCHAR(500) NOT NULL,
@@ -62,7 +62,7 @@ CREATE INDEX IF NOT EXISTS idx_discovered_jobs_location ON discovered_jobs USING
 -- Purpose: Store user preferences for job discovery
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS job_discovery_preferences (
-    id VARCHAR(21) PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     preferred_keywords TEXT[],
     preferred_locations TEXT[],
@@ -89,7 +89,7 @@ CREATE INDEX IF NOT EXISTS idx_job_discovery_preferences_auto_search ON job_disc
 -- Purpose: Store job alerts that match specific criteria
 -- =====================================================================
 CREATE TABLE IF NOT EXISTS saved_job_alerts (
-    id VARCHAR(21) PRIMARY KEY,
+    id VARCHAR(50) PRIMARY KEY,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     search_criteria JSONB NOT NULL,

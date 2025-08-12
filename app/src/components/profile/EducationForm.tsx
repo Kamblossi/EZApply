@@ -14,25 +14,13 @@ import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-
-const educationSchema = z.object({
-  institution: z.string().min(2, 'Institution name must be at least 2 characters'),
-  qualification_type: z.string().min(2, 'Qualification type must be at least 2 characters'),
-  degree_diploma: z.string().min(2, 'Degree/diploma must be at least 2 characters'),
-  field_of_study: z.string().min(2, 'Field of study must be at least 2 characters').optional().nullable(),
-  start_date: z.coerce.date({ required_error: 'Start date is required' }),
-  end_date: z.coerce.date().nullable().optional(),
-  grade_score: z.string().max(100, 'Grade/score cannot exceed 100 characters').optional().nullable(),
-});
-
-type EducationFormData = z.infer<typeof educationSchema>;
+import { educationRecordSchema, type EducationRecord } from '../../validators/profile';
 
 interface EducationFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: EducationFormData) => Promise<void>;
-  initialData?: any;
+  onSubmit: (data: EducationRecord) => void;
+  initialData?: EducationRecord;
   isEdit?: boolean;
 }
 
@@ -48,14 +36,14 @@ export const EducationForm: React.FC<EducationFormProps> = ({
     handleSubmit,
     reset,
     formState: { errors, isSubmitting },
-  } = useForm<EducationFormData>({
-    resolver: zodResolver(educationSchema),
-    defaultValues: initialData || {
+  } = useForm<EducationRecord>({
+    resolver: zodResolver(educationRecordSchema),
+    defaultValues: {
       institution: '',
       qualification_type: '',
       degree_diploma: '',
       field_of_study: '',
-      start_date: null,
+      start_date: new Date(),
       end_date: null,
       grade_score: '',
     },
@@ -65,7 +53,7 @@ export const EducationForm: React.FC<EducationFormProps> = ({
     if (initialData) {
       reset({
         ...initialData,
-        start_date: initialData.start_date ? new Date(initialData.start_date) : null,
+        start_date: initialData.start_date ? new Date(initialData.start_date) : new Date(),
         end_date: initialData.end_date ? new Date(initialData.end_date) : null,
       });
     } else {
@@ -74,14 +62,14 @@ export const EducationForm: React.FC<EducationFormProps> = ({
         qualification_type: '',
         degree_diploma: '',
         field_of_study: '',
-        start_date: null,
+        start_date: new Date(),
         end_date: null,
         grade_score: '',
       });
     }
   }, [initialData, reset]);
 
-  const handleFormSubmit = async (data: EducationFormData) => {
+  const handleFormSubmit = async (data: EducationRecord) => {
     await onSubmit(data);
     onClose();
   };
